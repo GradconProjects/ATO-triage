@@ -1,6 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportClientError } from '@/components/layout/report-client-error';
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    reportClientError(error, 'global-error');
+  }, [error]);
   return (
     <html lang="en-AU">
       <body style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 560, margin: '0 auto' }}>
