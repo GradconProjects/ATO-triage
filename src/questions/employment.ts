@@ -10,7 +10,8 @@ const E = GROUPS.employer;
 const A = GROUPS.allowance;
 
 /** Plain-word labels for the generic tags a user can tick when their occupation is "Other". */
-export const GENERIC_TAG_LABELS: Record<(typeof GENERIC_OCCUPATION_TAGS)[number], { label: string; help: string }> = {
+type GenericTag = (typeof GENERIC_OCCUPATION_TAGS)[number];
+export const GENERIC_TAG_LABELS: Record<GenericTag, { label: string; help: string }> = {
   vehicle_travel: { label: 'Driving between workplaces or clients', help: 'Using your own car for work trips other than the normal drive from home to work.' },
   tools_equipment: { label: 'Buying tools or equipment for work', help: 'Hand tools, power tools, computers, or other equipment you paid for.' },
   uniform_ppe: { label: 'Wearing a uniform or protective clothing', help: 'A compulsory uniform with a logo, or protective items like safety boots, hi-vis or gloves.' },

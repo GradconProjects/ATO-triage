@@ -24,7 +24,7 @@ const TOOL = GROUPS.toolItem;
 const CAR_ON = yes(Q.ded.carAny);
 const TRAVEL_ON = yes('ded.travel.any');
 const OVERNIGHT_ON = any(yes('ded.overnight.any'), yes(Q.con.overnight));
-const CLOTHING_ON = yes(Q.ded.clothingAny);
+const CLOTHING_ON = yes('ded.clothing.any');
 const LAUNDRY_ON = any(yes(Q.ded.laundryAny), yes(Q.dsw.laundry), yes(Q.chef.laundry));
 const TOOL_ON = any(yes(Q.ded.toolAny), yes(Q.con.toolsAny), yes(Q.chef.knivesAny));
 const WFH_ON = any(yes(Q.ded.wfhAny), yes(Q.dsw.homeOffice));
@@ -141,7 +141,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   // =========================================================================
   // Clothing (generic screen hidden where a deep module asks its own clothing questions)
   // =========================================================================
-  yesNoUnsure(Q.ded.clothingAny, D, 'Did you buy work clothing this year?', {
+  yesNoUnsure('ded.clothing.any', D, 'Did you buy work clothing this year?', {
     occupationTags: ['uniform_ppe'], atoRef: ATO.clothing, feeds: ['deductions'], showIf: not(any(occ('dsw'), occ('construction'), occ('chef_hospitality'))),
     help: 'Only some work clothing counts: a compulsory uniform with a logo, a registered uniform, protective items, or clothing specific to your occupation. Plain clothes do not, even if you only wear them at work.',
   }),
