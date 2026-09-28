@@ -10,7 +10,7 @@ const E = GROUPS.employer;
 const A = GROUPS.allowance;
 
 /** Plain-word labels for the generic tags a user can tick when their occupation is "Other". */
-type GenericTag = (typeof GENERIC_OCCUPATION_TAGS)[number];
+type GenericTag = 'vehicle_travel' | 'tools_equipment' | 'uniform_ppe' | 'licences_cards' | 'home_office' | 'phone_internet' | 'overnight_travel' | 'sun_protection' | 'self_education' | 'union_fees';
 export const GENERIC_TAG_LABELS: Record<GenericTag, { label: string; help: string }> = {
   vehicle_travel: { label: 'Driving between workplaces or clients', help: 'Using your own car for work trips other than the normal drive from home to work.' },
   tools_equipment: { label: 'Buying tools or equipment for work', help: 'Hand tools, power tools, computers, or other equipment you paid for.' },
@@ -30,7 +30,7 @@ const OCCUPATION_OPTIONS: Option[] = OCCUPATIONS.filter((o) => o.id !== 'other')
 OCCUPATION_OPTIONS.push(opt('other', 'Other / not listed', 'Pick this if none of the listed jobs fit. We will ask what your work involved so nothing is missed.'));
 
 const TAG_OPTIONS: Option[] = [
-  ...GENERIC_OCCUPATION_TAGS.map((t) => ({ value: t, label: GENERIC_TAG_LABELS[t].label, help: GENERIC_TAG_LABELS[t].help })),
+  ...(GENERIC_OCCUPATION_TAGS as readonly GenericTag[]).map((t) => ({ value: t, label: GENERIC_TAG_LABELS[t].label, help: GENERIC_TAG_LABELS[t].help })),
   noneOption('None of these'),
 ];
 const ADDS_TAGS: Record<string, OccupationTag[]> = Object.fromEntries(GENERIC_OCCUPATION_TAGS.map((t) => [t, [t]]));
