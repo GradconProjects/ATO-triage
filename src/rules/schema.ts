@@ -72,6 +72,11 @@ export const repaymentBandSchema = z.object({
   rate: z.number(),
   /** marginal only: repayment at the bottom of the band. */
   base: z.number().optional(),
+  /**
+   * marginal only: when true the rate applies to the WHOLE repayment income (not just the dollars in
+   * the band) and `base` is ignored. Used for the "10% of total repayment income" top band from 2025-26.
+   */
+  wholeIncome: z.boolean().optional(),
 });
 
 export const saptoSchema = z.object({

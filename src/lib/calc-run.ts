@@ -1,0 +1,45 @@
+import { calculate } from '@/src/calc';
+import type { CalcInput, Estimate } from '@/src/calc/types';
+import { runIntelligence } from '@/src/intelligence';
+import type { IntelligenceResult } from '@/src/intelligence/types';
+import { getRuleSet } from '@/src/rules';
+import { QUESTION_BANK } from '@/src/questions';
+import type { CaseState } from './case-state';
+
+export interface CalcRun {
+  estimate: Estimate;
+  intelligence: IntelligenceResult;
+  input: CalcInput;
+}
+
+/** Run the calculation pipeline and the intelligence layer for a loaded case. Pure; no writes. */
+export function runCalculation(state: CaseState): CalcRun {
+  const rules = getRuleSet(state.ctx.fy);
+  const input: CalcInput = {
+    answers: state.view,
+    rules,
+    questions: QUESTION_BANK,
+    ctx: state.ctx,
+    activeTags: state.activeTags,
+    visible: state.visibleKeys,
+  };
+  const estimate = calculate(input);
+  const intelligence = runIntelligence({ ...input, visibleQuestions: state.visible }, estimate, (i) => calculate(i));
+  if (intelligence.range) estimate.range = intelligence.range;
+  return { estimate, intelligence, input };
+}
+
+export function summarise(run: CalcRun) {
+  const { estimate, intelligence } = run;
+  const open = intelligence.flags.filter((f) => f.kind !== 'opportunity');
+  return {
+    resultCents: estimate.totals.resultCents,
+    rangeLow: estimate.range?.lowCents,
+    rangeHigh: estimate.range?.highCents,
+    confidence: intelligence.confidence.level,
+    openFlags: open.length,
+    blockers: intelligence.flags.filter((f) => f.severity === 'blocker').length,
+    completenessPct: intelligence.completeness.pct,
+    manualReviewCount: estimate.manualReview.length,
+  };
+}

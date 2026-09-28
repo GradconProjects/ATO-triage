@@ -36,6 +36,8 @@ export interface EstimateLine {
   itemId?: string | null;
   /** Deduction details for the report table. */
   detail?: Record<string, string | number | boolean | null | undefined>;
+  /** True for a component line that explains a figure already counted by another line (never summed). */
+  informational?: boolean;
 }
 
 export interface ManualReviewItem {
@@ -58,7 +60,14 @@ export interface EstimateTotals {
   creditsCents: number;
   /** credits - (tax after offsets + medicare + mls + study). Positive = refund, negative = debt. */
   resultCents: number;
+  /** Income (non-capital) loss carried forward when taxable income would be negative. */
   carriedForwardLossCents: number;
+  /** Net capital loss carried forward to later years (kept separate from the income loss). */
+  capitalLossCarriedForwardCents: number;
+  /** Work-related deductions (car, clothing, tools, WFH, phone... excluding gifts, tax affairs, super, investment) for DEDUCTION_RATIO_HIGH. */
+  workRelatedDeductionsCents: number;
+  /** Private health insurance rebate liability added to tax (rebate received above entitlement). */
+  phiLiabilityCents: number;
 }
 
 export interface Estimate {
@@ -87,6 +96,8 @@ export interface CalcInput {
   visible: Set<string>;
   /** Optional: question ids to exclude (used for range estimates). */
   excludeInputs?: Set<string>;
+  /** Optional: rule set lookup for other years (LSPIA notional tax). Missing years fall back to `rules` with an assumption note. */
+  rulesFor?: (fy: string) => RuleSet | undefined;
 }
 
 export interface Confidence {
