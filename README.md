@@ -64,9 +64,26 @@ npm run lint && npm run typecheck && npm test -- --run && npm run build
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel (server only) + `.env.local` | Service-role key. Never prefix with `NEXT_PUBLIC_` |
 | `APP_BASE_URL` | Vercel | Production URL |
 | `REPORT_TIMEZONE` | Vercel | `Australia/Melbourne` |
+| `TEAM_SEED_USERS` | Vercel (server only) + `.env.local` | Team sign-ins, see below |
+| `APP_PIN_PEPPER` | Vercel (server only) + `.env.local` | Long random string |
+| `ADMIN_EMAILS` | Vercel | Extra admin emails, comma separated (optional) |
 
 The RLS test (`tests/unit/security/rls.test.ts`) runs only when `SUPABASE_TEST_URL`,
 `SUPABASE_TEST_ANON_KEY` and `SUPABASE_TEST_SERVICE_ROLE_KEY` point at a local or dev project.
+
+## Team access and admin
+
+- The admin is any account whose email is in `ADMIN_EMAILS` (ipaliboboma@gmail.com is always an admin). Admins have no
+  restriction, manage users at `/admin`, and can list and download every user's reports at `/admin/reports`.
+- Team members sign in on the login page with a **username and code**. They are created either by the admin at
+  `/admin` or from `TEAM_SEED_USERS` (created automatically on first sign-in). Under the hood each team member is a
+  Supabase Auth user, so row-level security keeps their data separate.
+- `TEAM_SEED_USERS` format, comma separated: `username:code:Display Name:restriction_level`. Codes are never stored in
+  the repository. Set `APP_PIN_PEPPER` to a long random string; it is mixed into codes before they are used as auth
+  passwords.
+- Restriction levels: `full` (everything on own data), `standard` (no delete profile, no Final reports), `restricted`
+  (answer interviews on existing profiles only), `view_only` (read only). Levels are enforced server-side in actions
+  and API routes and hide the matching controls in the UI.
 
 ## Vercel
 

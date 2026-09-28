@@ -7,7 +7,6 @@ import {
   answerKey,
   describeResult,
   formatCents,
-  instancesOf,
   occupationIds,
   pctText,
   perInstance,
@@ -130,7 +129,7 @@ export const LUMP_SUM_E_LSPIA: FlagRule = {
     const total = sumOverItems(a, Q.emp.lumpE, GROUPS.employer) + (a.cents(Q.comp.arrearsAmount) ?? 0);
     return total >= dollarsToCents(ctx.rules.lspiaMinimum);
   },
-  message: (a, ctx) => {
+  message: (a) => {
     const total = sumOverItems(a, Q.emp.lumpE, GROUPS.employer) + (a.cents(Q.comp.arrearsAmount) ?? 0);
     return `You received ${formatCents(total)} as a lump sum for earlier years (Lump Sum E or back pay). A lump sum in arrears offset may reduce the tax on it, but working it out needs your taxable income for each year the payment relates to. Check the years and amounts on the payment breakdown.`;
   },
