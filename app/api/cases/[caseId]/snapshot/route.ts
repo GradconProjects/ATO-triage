@@ -6,6 +6,7 @@ import type { ReportRow } from '@/src/lib/db/types';
 import { loadCaseState } from '@/src/lib/case-state';
 import { runCalculation } from '@/src/lib/calc-run';
 import { rateLimit } from '@/src/lib/rate-limit';
+import { accessForUser } from '@/src/lib/access';
 import { buildSnapshot } from '@/src/report/snapshot';
 import { DEFAULT_TIMEZONE } from '@/src/report/format';
 import { renderReportPdf, reportPdfPath, REPORTS_BUCKET } from '@/src/report/render';
@@ -30,11 +31,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+  const access = await accessForUser(supabase, user);
+  if (!access.can.generateReport) return NextResponse.json({ error: 'Your access level cannot generate reports' }, { status: 403 });
   if (!rateLimit(`snapshot:${user.id}`, 10, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   const parsed = bodySchema.safeParse((await request.json().catch(() => ({}))) ?? {});
   if (!parsed.success) return NextResponse.json({ error: 'Bad request', issues: parsed.error.issues }, { status: 400 });
   const wantFinal = parsed.data.final === true;
+  if (wantFinal && !access.can.finaliseReport) return NextResponse.json({ error: 'Your access level cannot mark a report Final; ask the admin' }, { status: 403 });
 
   const state = await loadCaseState(supabase, user.id, caseId);
   if (!state) return NextResponse.json({ error: 'Not found' }, { status: 404 });

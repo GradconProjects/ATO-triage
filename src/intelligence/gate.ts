@@ -18,7 +18,7 @@ export const GATE_CHECKS: ReadonlyArray<{ value: string; label: string }> = [
 export interface FinaliseCheckInput {
   /** Visible-only answer view. */
   answers: AnswerView;
-  questions: Question[];
+  questions: readonly Question[];
   flags: Flag[];
   incomeModulesPct: number;
 }

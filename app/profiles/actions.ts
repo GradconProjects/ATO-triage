@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireUser } from '@/src/lib/supabase/server';
+import { requirePermission, type Access } from '@/src/lib/access';
 import { appendAnswers, createCase, createItem, createProfile, deleteCase, deleteProfile, getCase, listAnswers, listItems, updateProfile } from '@/src/lib/db/repo';
 import { findOccupation } from '@/src/occupations/registry';
 import { FINANCIAL_YEARS, type FY } from '@/src/engine/types';
@@ -28,21 +28,21 @@ function parseProfileForm(formData: FormData) {
 }
 
 export async function createProfileAction(formData: FormData) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requirePermission('createProfile');
   const row = await createProfile(supabase, user.id, parseProfileForm(formData));
   revalidatePath('/dashboard');
   redirect(`/profiles/${row.id}`);
 }
 
 export async function updateProfileAction(profileId: string, formData: FormData) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requirePermission('editProfile');
   await updateProfile(supabase, user.id, profileId, parseProfileForm(formData));
   revalidatePath(`/profiles/${profileId}`);
   revalidatePath('/dashboard');
 }
 
 export async function deleteProfileAction(profileId: string) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requirePermission('deleteProfile');
   // Storage cleanup for every case under this profile (service role: RLS-scoped listing first).
   const cases = await supabase.from('fy_cases').select('id').eq('profile_id', profileId);
   try {
@@ -66,7 +66,7 @@ export async function deleteProfileAction(profileId: string) {
 }
 
 export async function createCaseAction(profileId: string, formData: FormData) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requirePermission('createCase');
   const financial_year = String(formData.get('financial_year') ?? '') as FY;
   const purpose = String(formData.get('purpose') ?? '') as CasePurpose;
   const copyFrom = String(formData.get('copy_from') ?? '');
@@ -90,7 +90,7 @@ export async function createCaseAction(profileId: string, formData: FormData) {
 const COPY_GROUPS = new Set(['employer', 'rental_property']);
 const COPY_QUESTION_PREFIXES = ['emp.employer.name', 'emp.employer.abn', 'emp.employer.occupation', 'emp.employer.other_tags', 'rent.property.address', 'rent.property.ownership_pct', 'res.status', 'fam.spouse', 'phi.cover', 'loan.types', 'rent.any'];
 
-async function copyStableFacts(supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], ownerId: string, fromCaseId: string, toCaseId: string) {
+async function copyStableFacts(supabase: Access['supabase'], ownerId: string, fromCaseId: string, toCaseId: string) {
   const source = await getCase(supabase, fromCaseId);
   if (!source) return;
   const [answers, items] = await Promise.all([listAnswers(supabase, fromCaseId), listItems(supabase, fromCaseId)]);
@@ -117,7 +117,7 @@ async function copyStableFacts(supabase: Awaited<ReturnType<typeof requireUser>>
 }
 
 export async function deleteCaseAction(profileId: string, caseId: string) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requirePermission('deleteCase');
   await deleteCase(supabase, user.id, caseId);
   revalidatePath(`/profiles/${profileId}`);
 }

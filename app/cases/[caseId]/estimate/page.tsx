@@ -80,7 +80,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
           <div className="space-y-2 text-right">
             <Badge tone={tone}>Confidence: {intelligence.confidence.level}</Badge>
             <p className="text-xs text-muted">{intelligence.completeness.pct}% complete</p>
-            <GenerateReportButton caseId={caseId} canFinalise={intelligence.canFinalise} blockers={intelligence.finaliseBlockers} />
+            <GenerateReportButton caseId={caseId} allowFinal={intelligence.canFinalise} />
           </div>
         </div>
         <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">

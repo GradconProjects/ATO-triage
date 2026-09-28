@@ -20,7 +20,7 @@ export class CalcContext {
   readonly a: ScopedAnswerView;
   readonly rules: RuleSet;
   readonly fy: FY;
-  readonly questions: Question[];
+  readonly questions: readonly Question[];
   readonly qById: Map<string, Question>;
   readonly visible: Set<string>;
   readonly ctx: CaseContext;

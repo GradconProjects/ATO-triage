@@ -6,7 +6,7 @@ import type { CalcInput, Estimate } from '../calc/types';
 import type { Question } from '../engine/types';
 import type { RangeEstimate } from './types';
 
-function labelFor(key: string, questions: Question[]): string {
+function labelFor(key: string, questions: readonly Question[]): string {
   const [id] = key.split('@');
   const q = questions.find((x) => x.id === id);
   return q ? `"${q.prompt}"` : key;

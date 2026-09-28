@@ -5,6 +5,7 @@ import { createItem, deleteItem, getCase, listItems } from '@/src/lib/db/repo';
 import { repeaterSpecs } from '@/src/engine';
 import { QUESTION_BANK } from '@/src/questions';
 import { loadCaseState, serializeCaseState } from '@/src/lib/case-state';
+import { accessForUser } from '@/src/lib/access';
 
 const createSchema = z.object({ groupId: z.string().min(1) });
 const deleteSchema = z.object({ itemId: z.string().uuid() });
@@ -15,6 +16,8 @@ async function auth(caseId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: 'Unauthenticated' }, { status: 401 }) };
+  const access = await accessForUser(supabase, user);
+  if (!access.can.editAnswers) return { error: NextResponse.json({ error: 'Your access level is view only' }, { status: 403 }) };
   const caseRow = await getCase(supabase, caseId);
   if (!caseRow) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) };
   if (caseRow.status === 'final') return { error: NextResponse.json({ error: 'This case is final and read-only' }, { status: 409 }) };

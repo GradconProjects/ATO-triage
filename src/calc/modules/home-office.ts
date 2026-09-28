@@ -1,6 +1,7 @@
 import { Q } from '../../questions/ids';
 import type { CalcContext } from '../context';
 import { pct } from '../money';
+import { resolvePaid } from '../reimbursement';
 
 /**
  * Working from home.
@@ -45,9 +46,16 @@ export function computeHomeOffice(cx: CalcContext): number {
   if (method === 'actual') {
     const wp = cx.a.number(Q.ded.wfhWorkPct);
     if (actual === undefined || wp === undefined) return toReview('Actual-cost method needs the total running costs and the work-use percentage.', [Q.ded.wfhActualCosts, Q.ded.wfhWorkPct], actual ?? 0, 'actual costs x work % (missing)');
-    const amount = pct(actual, wp);
+    const paid = resolvePaid(cx, 'ded.wfh', null, actual);
+    if (paid.kind === 'excluded') {
+      cx.setStatus('home_office', 'computed');
+      cx.lines.excluded({ id: 'ded.wfh', section: 'deductions', label: 'Working from home (actual cost)', amountCents: actual, ruleId: `${rules.fy}.wfh`, inputs: [...inputs, ...paid.inputs], formula: `${actual / 100} reimbursed`, note: paid.note ?? 'Reimbursed.', category: 'home_office' });
+      return 0;
+    }
+    if (paid.kind === 'review') return toReview(paid.note ?? 'Reimbursement unknown.', paid.inputs, actual, 'actual costs x work %');
+    const amount = pct(paid.netCents, wp);
     cx.setStatus('home_office', 'computed');
-    cx.lines.computed({ id: 'ded.wfh', section: 'deductions', label: 'Working from home (actual cost)', amountCents: amount, ruleId: `${rules.fy}.wfh`, inputs: [...inputs, Q.ded.wfhActualCosts, Q.ded.wfhWorkPct], formula: `${actual / 100} x ${wp}%`, category: 'home_office', detail: { method: 'actual', actualCostsCents: actual, workPct: wp } });
+    cx.lines.computed({ id: 'ded.wfh', section: 'deductions', label: 'Working from home (actual cost)', amountCents: amount, ruleId: `${rules.fy}.wfh`, inputs: [...inputs, Q.ded.wfhActualCosts, Q.ded.wfhWorkPct], formula: `${paid.netCents / 100} x ${wp}%`, category: 'home_office', detail: { method: 'actual', actualCostsCents: actual, workPct: wp, reimbursedCents: paid.reimbursedCents } });
     return amount;
   }
   return toReview(cx.a.isNotSure(Q.ded.wfhMethod) ? 'Not sure which working-from-home method applies.' : 'Working-from-home method not answered.', [Q.ded.wfhMethod], 0, 'method unknown');

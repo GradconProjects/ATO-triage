@@ -1,6 +1,7 @@
 import { Q } from '../../questions/ids';
 import type { CalcContext } from '../context';
 import { dollarsToCents } from '../money';
+import { resolvePaid } from '../reimbursement';
 
 /**
  * Personal deductible super contribution: only when the notice of intent is acknowledged; capped
@@ -21,6 +22,19 @@ export function computeSuperDeduction(cx: CalcContext, rescCents: number): numbe
   if (noi !== 'acknowledged') {
     cx.setStatus('super_contribution', 'computed');
     cx.lines.excluded({ id: 'ded.super', section: 'deductions', label: 'Personal super contribution', amountCents: amount, ruleId: `${rules.fy}.superDeduction`, inputs, formula: `${amount / 100} (notice of intent ${noi ?? 'not answered'})`, note: 'Blocked: a personal super deduction needs a notice of intent lodged with the fund and acknowledged before lodging.', category: 'personal_super' });
+    return 0;
+  }
+  const paid = resolvePaid(cx, 'supc.personal', null, amount);
+  if (paid.kind === 'excluded') {
+    cx.setStatus('super_contribution', 'computed');
+    cx.lines.excluded({ id: 'ded.super', section: 'deductions', label: 'Personal super contribution', amountCents: amount, ruleId: `${rules.fy}.superDeduction`, inputs: [...inputs, ...paid.inputs], formula: `${amount / 100} not paid from own money`, note: paid.note ?? 'Not paid from your own after-tax money.', category: 'personal_super' });
+    return 0;
+  }
+  if (paid.kind === 'review') {
+    cx.setStatus('super_contribution', 'manual_review');
+    cx.review('super_contribution', paid.note ?? 'Reimbursement unknown.', paid.inputs, amount);
+    cx.markUncertain(Q.supc.personalAmount);
+    cx.lines.review({ id: 'ded.super', section: 'deductions', label: 'Personal super contribution', amountCents: amount, ruleId: `${rules.fy}.superDeduction`, inputs: [...inputs, ...paid.inputs], formula: `${amount / 100}`, note: paid.note ?? 'Reimbursement unknown.', category: 'personal_super' });
     return 0;
   }
   const cap = Math.max(0, dollarsToCents(rules.concessionalCap) - rescCents);

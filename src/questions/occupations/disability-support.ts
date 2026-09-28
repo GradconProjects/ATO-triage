@@ -8,7 +8,7 @@
  */
 import type { Question } from '../../engine/types';
 import { Q } from '../ids';
-import { ATO, all, deductionSet, flatten, includesAny, isIn, multi, noneOption, opt, otherText, single, text, yes, yesNoUnsure } from '../shared';
+import { ATO, all, deductionSet, flatten, includesAny, isIn, multi, noneOption, opt, otherText, single, yes, yesNoUnsure } from '../shared';
 
 const M = 'deep_dsw' as const;
 const TAGS: Question['occupationTags'] = ['dsw'];
@@ -55,7 +55,7 @@ export const DSW_QUESTIONS: Question[] = flatten(
     opt('other', 'Something else'),
     noneOption('None of these'),
   ], { ...ref(ATO.dsw), showIf: yes(Q.dsw.sleepover), feeds: ['deductions'], help: 'These are private costs (treatment: not deductible). Ticking them helps the report explain why they are excluded.' }),
-  otherText(Q.dsw.sleepoverCosts, M, TAGS, undefined, 'Describe the other sleepover cost'),
+  otherText(Q.dsw.sleepoverCosts, M, { occupationTags: TAGS, atoRef: ATO.dsw, prompt: 'Describe the other sleepover cost' }),
 
   // ---- Client costs ----
   single(Q.dsw.clientCosts, M, 'Did you pay for client outings, meals or activities?', [
@@ -136,7 +136,6 @@ export const DSW_QUESTIONS: Question[] = flatten(
     treatment: { byQuestion: Q.dsw.training, map: { current_duties: 'D', new_role: 'N', employer_paid: 'N' }, fallback: 'R' },
     showIf: isIn(Q.dsw.training, ['current_duties', 'new_role']),
     prompt: 'How much did the training cost?',
-    purpose: [text('dsw.training.description', M, 'What was the training?', { validation: [{ kind: 'maxLength', value: 200 }] })],
   }),
 
   // ---- Conferences, seminars, union fees ----
@@ -147,14 +146,6 @@ export const DSW_QUESTIONS: Question[] = flatten(
   ...deductionSet({
     base: 'dsw.conferences', module: M, category: 'union_professional', treatment: 'D', atoRef: ATO.union, occupationTags: TAGS, showIf: yes('dsw.conferences.any'),
     prompt: 'How much did you pay for conferences, seminars, union fees in total?',
-    purpose: [
-      multi('dsw.conferences.items', M, 'Which of these did you pay for?', [
-        opt('conference', 'Conference or seminar fees'),
-        opt('union', 'Union fees'),
-        opt('professional', 'Professional association fees'),
-        noneOption('None of these'),
-      ], { feeds: ['deductions'] }),
-    ],
   }),
 
   // ---- Routed to shared fields ----

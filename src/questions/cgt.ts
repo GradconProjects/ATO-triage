@@ -31,7 +31,7 @@ export const CGT_QUESTIONS: Question[] = flatten(
     repeaterGroup: C, showIf: HAS_EVENT, feeds: ['cgt'],
     help: 'The contract or purchase date. Assets held 12 months or more may get a 50% discount on the gain, so this date matters.',
   }),
-  money(Q.cgt.costBase, 'cgt', 'What did it cost you in total, including buying and selling costs?', {
+  money(Q.cgt.costBase, 'cgt', 'What did it cost you in total, including incidental costs like brokerage?', {
     repeaterGroup: C, showIf: HAS_EVENT, feeds: ['cgt'], validation: [{ kind: 'min', value: 0 }],
     help: 'Purchase price plus brokerage, stamp duty, legal fees and selling costs. For crypto, the AUD value when you acquired it.',
   }),

@@ -36,7 +36,6 @@ export const COMPENSATION_QUESTIONS: Question[] = flatten(
     showIf: includes(Q.comp.received, 'weekly'), credit: 'payg_withheld', feeds: ['credits'], validation: [{ kind: 'min', value: 0 }],
     help: 'Shown on the payment summary. It is credited against your tax.',
   }),
-  text('comp.weekly.payer', 'compensation', 'Who paid the weekly payments?', { showIf: includes(Q.comp.received, 'weekly'), help: 'The insurer, scheme or employer named on the payment summary.', validation: [{ kind: 'maxLength', value: 120 }] }),
 
   amt(Q.comp.arrearsAmount, 'arrears', 'What was the total of the arrears payment?', { category: 'lump_sum_e', treatment: 'I' }, 'The lump sum of back pay you received this year. We will ask which earlier years it relates to.', ['income', 'lspia']),
   date('comp.arrears.date', 'compensation', 'On what date was the arrears payment made?', { showIf: ARREARS, validation: [{ kind: 'inFinancialYear' }], feeds: ['lspia'], help: 'The payment date decides which amounts accrued more than 12 months earlier.' }),
@@ -44,15 +43,10 @@ export const COMPENSATION_QUESTIONS: Question[] = flatten(
   amt(Q.comp.medicalAmount, 'medical', 'What was the total of the medical or treatment reimbursements?', { category: 'compensation', treatment: 'N' }, 'Recorded but not added to income.', ['income']),
 
   amt(Q.comp.impairmentAmount, 'impairment', 'How much was the permanent impairment lump sum?', { category: 'compensation', treatment: 'R' }, 'Usually a capital payment, not income, but it depends on the settlement terms. We list it for review, never add it silently.', ['income']),
-  date('comp.impairment.date', 'compensation', 'On what date was the impairment lump sum paid?', { showIf: includes(Q.comp.received, 'impairment'), validation: [{ kind: 'inFinancialYear' }] }),
-  text('comp.impairment.payer', 'compensation', 'Who paid the impairment lump sum?', { showIf: includes(Q.comp.received, 'impairment'), validation: [{ kind: 'maxLength', value: 120 }] }),
 
   amt(Q.comp.economicLossAmount, 'economic_loss', 'How much was the economic loss lump sum?', { category: 'compensation', treatment: 'R' }, 'Treatment depends on whether it replaces income or compensates for a capital loss. Listed for review.', ['income']),
-  date('comp.economic_loss.date', 'compensation', 'On what date was the economic loss lump sum paid?', { showIf: includes(Q.comp.received, 'economic_loss'), validation: [{ kind: 'inFinancialYear' }] }),
 
   amt(Q.comp.commonLawAmount, 'common_law', 'How much was the common-law settlement?', { category: 'compensation', treatment: 'R' }, 'Personal injury settlements are usually not income, but the terms decide. Listed for review.', ['income']),
-  date('comp.common_law.date', 'compensation', 'On what date was the settlement paid?', { showIf: includes(Q.comp.received, 'common_law'), validation: [{ kind: 'inFinancialYear' }] }),
-  text('comp.common_law.payer', 'compensation', 'Who paid the settlement?', { showIf: includes(Q.comp.received, 'common_law'), validation: [{ kind: 'maxLength', value: 120 }] }),
 
   amt(Q.comp.interestAmount, 'interest', 'How much interest did you receive on the compensation?', { category: 'interest', treatment: 'I' }, 'Interest is assessable income even when the main payment is not.', ['income']),
   amt(Q.comp.legalAmount, 'legal', 'How much of your legal costs were reimbursed?', { category: 'compensation', treatment: 'N' }, 'Recorded but not added to income.', ['income']),
@@ -122,13 +116,4 @@ export const COMPENSATION_QUESTIONS: Question[] = flatten(
     showIf: includes(Q.comp.etpReceived, 'redundancy'), income: { category: 'etp', treatment: 'R' }, feeds: ['income'], validation: [{ kind: 'min', value: 0 }],
     help: 'The whole redundancy amount. The tax-free part (Lump Sum D) should also be on the income statement; we reconcile them in review.',
   }),
-  singleUnused(),
 );
-
-/** Reminder only: unused leave is captured on the employer income statement. */
-function singleUnused(): Question {
-  return yesNoUnsure('etp.unused_leave.entered', 'compensation', 'Have you entered the Lump Sum A / B amounts in the employer section?', {
-    showIf: includes(Q.comp.etpReceived, 'unused_leave'),
-    help: 'Unused leave is taxed through the Lump Sum A and B fields on the income statement. Go back to the employer entry if you have not added them.',
-  });
-}

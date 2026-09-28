@@ -12,12 +12,15 @@ import { FINANCIAL_YEARS } from '@/src/engine/types';
 import { ProfileForm } from '../profile-form';
 import { createCaseAction, deleteCaseAction, deleteProfileAction, updateProfileAction } from '../actions';
 import { ConfirmButton } from '@/components/layout/confirm-button';
+import { getAccess } from '@/src/lib/access';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProfilePage({ params }: { params: Promise<{ profileId: string }> }) {
   const { profileId } = await params;
   const supabase = await createClient();
+  const access = await getAccess().catch(() => null);
+  const can = access?.can;
   const profile = await getProfile(supabase, profileId);
   if (!profile) notFound();
   const cases = await listCasesForProfile(supabase, profileId);
@@ -48,7 +51,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
                   <Link href={`/cases/${c.id}/estimate`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                     Estimate
                   </Link>
-                  {c.status !== 'final' ? (
+                  {c.status !== 'final' && can?.deleteCase ? (
                     <form action={deleteCaseAction.bind(null, profileId, c.id)}>
                       <ConfirmButton label="Delete" message={`Delete the ${c.financial_year} case and all its answers?`} />
                     </form>
@@ -58,6 +61,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
             ))}
             {cases.length === 0 ? <li className="text-sm text-muted">No tax years yet.</li> : null}
           </ul>
+          {can?.createCase ? (
           <form action={createCase} className="mt-5 space-y-3 rounded-md bg-accent p-3">
             <p className="text-sm font-medium">Start a new year</p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -104,6 +108,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
             ) : null}
             <Button type="submit">Start year</Button>
           </form>
+          ) : null}
         </Card>
         <Card>
           <CardTitle>Profile details</CardTitle>
@@ -112,10 +117,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
             submitLabel="Save changes"
             initial={{ display_name: profile.display_name, relationship: profile.relationship, birth_year: profile.birth_year, occupations: profile.occupations }}
           />
+          {can?.deleteProfile ? (
           <form action={deleteProfile} className="mt-6 border-t border-border pt-4">
             <p className="text-sm text-muted">Deleting removes this profile, every tax year, all answers, documents and reports. This cannot be undone.</p>
             <ConfirmButton label="Delete profile" message={`Delete ${profile.display_name} and everything under it?`} variant="danger" />
           </form>
+          ) : null}
         </Card>
       </section>
     </AppShell>

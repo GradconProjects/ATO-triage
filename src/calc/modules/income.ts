@@ -147,14 +147,9 @@ export function computeIncome(cx: CalcContext): IncomeResult {
     const key = keyOf(Q.allow.amount, itemId);
     if (nature === 'reimbursement') {
       add({ idPrefix: 'income.allowance', itemId, label: `Reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `reimbursement of actual cost ${cents / 100}`, ruleId: `${fy}.income.allowance`, treatment: 'N', key, note: 'A reimbursement of actual costs is not income, and the matching expense cannot be claimed.' });
-    } else if (nature === 'allowance' || nature === undefined) {
-      if (nature === undefined) {
-        if (cx.a.isNotSure(Q.allow.nature, itemId)) {
-          add({ idPrefix: 'income.allowance', itemId, label: `Allowance or reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `${cents / 100} (allowance vs reimbursement not sure)`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: 'Not sure whether this was an allowance or a reimbursement.' });
-          continue;
-        }
-        cx.assume(`Allowance (${type}) treated as an allowance (income) because the allowance/reimbursement question was not answered.`);
-      }
+    } else if (nature === undefined) {
+      add({ idPrefix: 'income.allowance', itemId, label: `Allowance or reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `${cents / 100} (allowance vs reimbursement ${cx.a.isNotSure(Q.allow.nature, itemId) ? 'not sure' : 'not answered'})`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: cx.a.isNotSure(Q.allow.nature, itemId) ? 'Not sure whether this was an allowance or a reimbursement.' : 'Whether this was an allowance or a reimbursement has not been answered.' });
+    } else if (nature === 'allowance') {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance (${type})`, cents, category: 'allowance', inputs, formula: `allowance ${cents / 100} assessable`, ruleId: `${fy}.income.allowance`, treatment: 'I', key });
     } else {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance (${type})`, cents, category: 'allowance', inputs, formula: `${cents / 100}`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: 'Nature of the payment not recognised.' });

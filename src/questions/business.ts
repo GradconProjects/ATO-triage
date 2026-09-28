@@ -26,16 +26,6 @@ export const BUSINESS_QUESTIONS: Question[] = flatten(
     showIf: ST, calc: { business: 'expenses' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
     help: 'Costs of running the business: materials, subcontractors, insurance, vehicle, phone, software. Keep the breakdown for your records; we ask for the total here.',
   }),
-  multi('bus.expenses.categories', 'business', 'Which kinds of expenses are included in that total?', [
-    opt('materials', 'Materials, stock or cost of goods'),
-    opt('contractors', 'Subcontractors or wages'),
-    opt('vehicle', 'Vehicle costs'),
-    opt('home', 'Home-based business costs'),
-    opt('equipment', 'Equipment or assets costing $300 or more', 'Larger items may need to be depreciated rather than claimed at once.'),
-    opt('other', 'Other running costs'),
-    noneOption('None, the total is zero'),
-  ], { showIf: ST, help: 'Helps the reviewer check the total is made up of deductible business costs.', feeds: ['business'] }),
-  text('bus.expenses.categories.other_text', 'business', 'Describe the other running costs', { showIf: { q: 'bus.expenses.categories', includes: 'other' } }),
   yesNoUnsure(Q.bus.gst, 'business', 'Were you registered for GST?', {
     showIf: ST, feeds: ['business'],
     help: 'If registered, enter income and expenses without GST. Registration is required once turnover reaches $75,000.',

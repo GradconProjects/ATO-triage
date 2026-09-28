@@ -114,7 +114,8 @@ export function single(id: string, module: ModuleId, prompt: string, options: Op
 /** `exclusive` only has meaning on multi questions (lint rule 14). */
 function stripExclusive(o: Option): Option {
   if (!o.exclusive) return o;
-  const { exclusive: _x, ...rest } = o;
+  const rest: Option = { ...o };
+  delete rest.exclusive;
   return rest;
 }
 
@@ -139,14 +140,25 @@ export function multiAllowListed(id: string, module: ModuleId, prompt: string, o
  */
 export function screening(id: string, module: ModuleId, prompt: string, options: Option[], extra?: Extra, noneLabel = 'None of these'): Question[] {
   const q = multi(id, module, prompt, [...options, otherOption(), noneOption(noneLabel)], { ...extra, screening: true, required: true });
-  return [q, otherText(id, module, extra?.occupationTags, extra?.repeaterGroup)];
+  return [q, otherText(id, module, { occupationTags: extra?.occupationTags, repeaterGroup: extra?.repeaterGroup, atoRef: extra?.atoRef })];
 }
 
-/** Follow-up text for an `other` option: `${parentId}.other_text`. */
-export function otherText(parentId: string, module: ModuleId, occupationTags?: OccupationTag[], repeaterGroup?: string, prompt = 'Please describe the "other" item'): Question {
-  const q: Question = { id: `${parentId}.other_text`, module, type: 'text', prompt, required: false, showIf: includes(parentId, 'other'), validation: [{ kind: 'maxLength', value: 500 }] };
-  if (occupationTags) q.occupationTags = occupationTags;
-  if (repeaterGroup) q.repeaterGroup = repeaterGroup;
+export interface OtherTextOpts {
+  occupationTags?: OccupationTag[];
+  repeaterGroup?: string;
+  prompt?: string;
+  atoRef?: string;
+}
+
+/** Follow-up text for an `other` option: `${parentId}.other_text`, shown when `other` is ticked. */
+export function otherText(parentId: string, module: ModuleId, opts: OtherTextOpts = {}): Question {
+  const q: Question = {
+    id: `${parentId}.other_text`, module, type: 'text', prompt: opts.prompt ?? 'Please describe the "other" item', required: false,
+    showIf: includes(parentId, 'other'), validation: [{ kind: 'maxLength', value: 500 }],
+  };
+  if (opts.occupationTags) q.occupationTags = opts.occupationTags;
+  if (opts.repeaterGroup) q.repeaterGroup = opts.repeaterGroup;
+  if (opts.atoRef) q.atoRef = opts.atoRef;
   return q;
 }
 

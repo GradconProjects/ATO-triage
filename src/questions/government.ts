@@ -8,7 +8,7 @@ const GOV_LABELS: Record<(typeof GOV_TYPES)[number], { option: string; amount: s
   pension: { option: 'Age Pension, Disability Support Pension or Carer Payment', amount: 'How much pension did you receive?', help: 'Age Pension and Carer Payment are taxable. Disability Support Pension is usually tax-free under pension age but still enter it; we check eligibility for the seniors and pensioners offset.' },
   parenting: { option: 'Parenting Payment', amount: 'How much Parenting Payment did you receive?', help: 'Taxable.' },
   ppl: { option: 'Paid Parental Leave from Services Australia', amount: 'How much Paid Parental Leave did you receive from Services Australia?', help: 'Taxable. Employer-paid parental leave is on your income statement instead.' },
-  dad_partner: { option: 'Dad and Partner Pay', amount: 'How much Dad and Partner Pay did you receive?', help: 'Taxable.' },
+  dad_partner: { option: 'Dad and Partner Pay', amount: 'How much Dad & Partner Pay did you receive?', help: 'Taxable.' },
   disaster: { option: 'Disaster recovery payments or allowances', amount: 'How much did you receive in disaster payments?', help: 'Disaster Recovery Allowance is taxable; some one-off disaster payments are tax-free. We flag these for a check.' },
   veterans: { option: 'Veterans\' payments (DVA)', amount: 'How much did you receive in veterans\' payments?', help: 'Some DVA payments are taxable and some are exempt. The DVA payment summary shows which.' },
   other: { option: 'Other government payment', amount: 'How much was the other government payment?' },

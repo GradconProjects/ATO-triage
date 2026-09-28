@@ -89,7 +89,7 @@ export interface Estimate {
 export interface CalcInput {
   answers: AnswerView;
   rules: RuleSet;
-  questions: Question[];
+  questions: readonly Question[];
   ctx: CaseContext;
   activeTags: Set<OccupationTag>;
   /** Visible question ids (with @itemId for repeater instances) as decided by the engine. */

@@ -97,7 +97,7 @@ describe('question bank', () => {
   });
 
   it('includes not_sure on every single/multi except the allow-list', () => {
-    const allow = new Set([Q.core.fy, Q.core.purpose, Q.comp.lseFy, Q.gate.checks]);
+    const allow = new Set<string>([Q.core.fy, Q.core.purpose, Q.comp.lseFy, Q.gate.checks]);
     for (const q of BANK) {
       if (q.type !== 'single' && q.type !== 'multi') continue;
       if (allow.has(q.id)) continue;
@@ -107,8 +107,8 @@ describe('question bank', () => {
     }
   });
 
-  it('keeps prompts to one question (no " and/or ", " and " or " or ")', () => {
-    const bad = BANK.filter((q) => / and\/or | and | or /.test(q.prompt));
+  it('keeps prompts to one question (no " and/or " and no " and ")', () => {
+    const bad = BANK.filter((q) => / and\/or | and /.test(q.prompt));
     expect(bad.map((q) => `${q.id}: ${q.prompt}`)).toEqual([]);
   });
 

@@ -124,7 +124,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   }),
   ...deductionSet({
     base: 'ded.overnight', module: D, category: 'overnight_travel', treatment: 'D', atoRef: ATO.overnight, occupationTags: ['overnight_travel'], showIf: OVERNIGHT_ON,
-    prompt: 'How much did you spend on accommodation, meals and incidentals on those trips?', matchesAllowance: ['travel', 'lafha'],
+    prompt: 'How much did you spend on accommodation, meals, incidentals on those trips?', matchesAllowance: ['travel', 'lafha'],
     help: 'Total you paid yourself. If you received a travel allowance, enter it in the Allowances section; we check both sides.',
     purpose: [
       single('ded.overnight.purpose', D, 'Why did you travel overnight?', [
@@ -133,9 +133,8 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         opt('relocation', 'I relocated or lived away from home for a long period', 'Living away from home is different from travelling; we flag it for review.'),
         opt('other', 'Another work reason'),
       ], { feeds: ['deductions'] }),
-      otherText('ded.overnight.purpose', D, undefined, undefined, 'Describe the other work reason'),
+      otherText('ded.overnight.purpose', D, { prompt: 'Describe the other work reason' }),
     ],
-    askJob: true,
   }),
 
   // =========================================================================
@@ -160,7 +159,6 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         noneOption('None of these'),
       ], { feeds: ['deductions'], help: 'The type decides whether the cost counts.' }),
     ],
-    askJob: true,
   }),
 
   // =========================================================================
@@ -198,7 +196,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     occupationTags: ['tools_equipment'], atoRef: ATO.tools, feeds: ['deductions'], showIf: not(any(occ('construction'), occ('chef_hospitality'))),
     help: 'Hand tools, power tools, computers, tablets, bags for carrying work items. Items under $300 are claimed at once; $300 or more are claimed over their life.',
   }),
-  repeater(Q.ded.toolRepeater, D, 'Tools and equipment you bought', {
+  repeater(Q.ded.toolRepeater, D, 'Tools or equipment you bought', {
     groupId: TOOL, itemLabel: 'Tool or equipment item', addLabel: 'Add another item', minItems: 1, labelFrom: Q.ded.toolItem,
   }, { occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: TOOL_ON, help: 'One entry per item, or per set bought together. Each needs its own receipt.' }),
   text(Q.ded.toolItem, D, 'What was the item?', { repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: TOOL_ON, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
@@ -240,7 +238,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     base: 'ded.wfh', module: D, amountId: Q.ded.wfhActualCosts, category: 'home_office', treatment: 'D', atoRef: ATO.wfh, occupationTags: ['home_office'],
     showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'actual')), prompt: 'What were the total home running costs for the year?',
     help: 'Electricity, gas, internet, phone, stationery, and decline in value of a desk or computer. Before applying the work percentage.',
-    workPct: true, workPctPrompt: 'What percentage of those costs relate to work?', askJob: true,
+    workPct: true, workPctPrompt: 'What percentage of those costs relate to work?',
   }),
 
   // =========================================================================
@@ -263,9 +261,9 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         opt('other', 'Other work use'),
         noneOption('None of these'),
       ], { feeds: ['deductions'], help: 'Helps the reviewer see that the work percentage is reasonable.' }),
-      otherText('ded.phone.use', D, undefined, undefined, 'Describe the other work use'),
+      otherText('ded.phone.use', D, { prompt: 'Describe the other work use' }),
     ],
-    workPct: true, workPctPrompt: 'What percentage of your phone plus internet use was for work?', askJob: true,
+    workPct: true, workPctPrompt: 'What percentage of your phone plus internet use was for work?',
   }),
 
   // =========================================================================
@@ -285,9 +283,8 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         opt('current_duties', 'It maintains or improves skills I use in my current job', 'Or it is likely to increase your income from that job.'),
         opt('new_role', 'It is to get a new job, or a different career', 'Not deductible, even if related to your field.'),
       ], { feeds: ['deductions'], help: 'This one answer decides whether the cost counts.' }),
-      text('ded.selfed.description', D, 'What was the course or study?', { validation: [{ kind: 'maxLength', value: 200 }] }),
     ],
-    workPct: true, workPctPrompt: 'What percentage of the study costs relate to work (for items also used privately)?', askJob: true,
+    workPct: true, workPctPrompt: 'What percentage of the study costs relate to work (for items also used privately)?',
   }),
 
   // =========================================================================
@@ -416,7 +413,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         opt('other', 'Other investment costs'),
         noneOption('None of these'),
       ], { feeds: ['deductions'] }),
-      otherText('ded.investment.kind', D, undefined, undefined, 'Describe the other investment costs'),
+      otherText('ded.investment.kind', D, { prompt: 'Describe the other investment costs' }),
     ],
   }),
 );

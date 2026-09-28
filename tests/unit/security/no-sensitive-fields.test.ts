@@ -27,6 +27,7 @@ describe('no sensitive identifiers', () => {
       // Look at identifier-like tokens only (ids, column names, input names), not prose.
       const idTokens = text.match(/(?:id:\s*['"`]|name=["']|create table |^\s+)[a-z0-9_.]+/gim) ?? [];
       for (const tok of idTokens) {
+        if (/tfn_?withheld/i.test(tok)) continue; // an amount withheld under TFN rules, not the identifier
         if (FORBIDDEN.some((re) => re.test(tok))) offenders.push(`${path.relative(ROOT, f)}: ${tok.trim()}`);
       }
     }

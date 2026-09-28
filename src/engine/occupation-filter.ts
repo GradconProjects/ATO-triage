@@ -24,7 +24,7 @@ function isOccupationTag(v: unknown): v is OccupationTag {
  *   ∪ when Q.emp.otherTags is not_sure (any item): every generic tag.
  * `all_employees` is always present when the profile lists an occupation or any employer item exists.
  */
-export function activeTagSet(ctx: CaseContext, answers: AnswerView, questions: Question[]): Set<OccupationTag> {
+export function activeTagSet(ctx: CaseContext, answers: AnswerView, questions: readonly Question[]): Set<OccupationTag> {
   const tags = tagsForOccupations(ctx.profileOccupations);
 
   const employers = answers.items(GROUPS.employer);

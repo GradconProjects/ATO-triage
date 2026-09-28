@@ -48,7 +48,8 @@ export function runIntelligence(input: IntelligenceInput, estimate: Estimate, re
   const visible = input.visibleQuestions ?? visibleQuestionsFromKeys(input);
   const completeness = completenessFrom(computeProgress(visible, input.answers));
   const conf = confidence(estimate, flags, completeness);
-  const { visibleQuestions: _ignored, ...calcInput } = input;
+  const calcInput: CalcInput = { ...input };
+  delete (calcInput as { visibleQuestions?: unknown }).visibleQuestions;
   const range = rangeEstimate(calcInput, estimate, recalc);
   const gate = finaliseCheck({ answers, questions: input.questions, flags, incomeModulesPct: completeness.incomeModulesPct });
 

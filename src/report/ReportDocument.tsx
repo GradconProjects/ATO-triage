@@ -8,7 +8,8 @@
  * disclaimer. Fixed header (name + FY) and footer (disclaimer + "Page x of y") on every
  * page; draft reports carry a diagonal DRAFT watermark. Built-in Helvetica only.
  */
-import { Document, Page } from '@react-pdf/renderer';
+import { Document, Page, type DocumentProps } from '@react-pdf/renderer';
+import type { ReactElement } from 'react';
 import { PREPARED_BY, REPORT_TITLE } from './format';
 import type { ReportSnapshot } from './snapshot';
 import { styles } from './styles';
@@ -54,6 +55,11 @@ export function ReportDocument({ snapshot }: { snapshot: ReportSnapshot }) {
       </Page>
     </Document>
   );
+}
+
+/** Typed element for `renderToBuffer` / `renderToStream`, which expect a `<Document>` element. */
+export function reportElement(snapshot: ReportSnapshot): ReactElement<DocumentProps> {
+  return <ReportDocument snapshot={snapshot} />;
 }
 
 export default ReportDocument;

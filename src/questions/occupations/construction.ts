@@ -44,15 +44,6 @@ export const CONSTRUCTION_QUESTIONS: Question[] = flatten(
   ...deductionSet({
     base: 'con.tool_repairs', module: M, category: 'tools', treatment: 'D', atoRef: ATO.tools, occupationTags: TAGS, showIf: yes('con.tool_repairs.any'), matchesAllowance: ['tool'],
     prompt: 'How much did you spend on tool repairs, insurance, hire, batteries in total?',
-    purpose: [
-      multi('con.tool_repairs.items', M, 'Which of these did you pay for?', [
-        opt('repairs', 'Tool repairs or servicing'),
-        opt('insurance', 'Tool insurance'),
-        opt('hire', 'Tool or equipment hire'),
-        opt('batteries', 'Batteries or consumables for tools'),
-        noneOption('None of these'),
-      ], { feeds: ['deductions'] }),
-    ],
     workPct: true, workPctPrompt: 'What percentage of the use of those tools was for work?',
   }),
 

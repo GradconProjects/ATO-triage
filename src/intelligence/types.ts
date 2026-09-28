@@ -30,7 +30,7 @@ export interface IntelligenceContext {
   estimate: Estimate;
   visible: Set<string>;
   activeTags: Set<OccupationTag>;
-  questions: Question[];
+  questions: readonly Question[];
   ctx: CaseContext;
   rules: RuleSet;
 }

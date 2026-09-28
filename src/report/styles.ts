@@ -50,7 +50,8 @@ export const styles = StyleSheet.create({
     bottom: PAGE_MARGIN - 20,
     left: PAGE_MARGIN,
     right: PAGE_MARGIN,
-    height: FOOTER_HEIGHT,
+    // No fixed height: with the page-level lineHeight a fixed height collapses the
+    // dynamic "Page x of y" Text to zero. Space is reserved by page.paddingBottom instead.
     borderTopWidth: 0.75,
     borderTopColor: colors.rule,
     paddingTop: 4,

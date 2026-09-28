@@ -69,7 +69,7 @@ export interface BuildSnapshotOptions {
   isFinal: boolean;
   timezone: string;
   /** Override for tests; defaults to the question bank. */
-  questionsById?: Map<string, Question>;
+  questionsById?: ReadonlyMap<string, Question>;
   /** Override for tests; defaults to now. */
   now?: Date;
 }
@@ -80,7 +80,7 @@ function displayFor(q: Question | undefined, rec: AnswerRecord): string {
   return displayAnswerValue(q, rec.value);
 }
 
-function bankOrder(byId: Map<string, Question>): Map<string, number> {
+function bankOrder(byId: ReadonlyMap<string, Question>): Map<string, number> {
   let i = 0;
   const order = new Map<string, number>();
   for (const id of byId.keys()) order.set(id, i++);
@@ -88,7 +88,7 @@ function bankOrder(byId: Map<string, Question>): Map<string, number> {
 }
 
 let bankOrderCache: Map<string, number> | null = null;
-function loadBank(): { byId: Map<string, Question>; order: Map<string, number> } {
+function loadBank(): { byId: ReadonlyMap<string, Question>; order: Map<string, number> } {
   if (!bankOrderCache) bankOrderCache = new Map(QUESTION_BANK.map((q, i) => [q.id, i]));
   return { byId: QUESTIONS_BY_ID, order: bankOrderCache };
 }
@@ -102,11 +102,11 @@ export function buildSnapshot(state: CaseState, estimate: Estimate, intelligence
   const answers: SnapshotAnswer[] = state.view.records().map((rec) => {
     const q = byId.get(rec.questionId);
     const item = rec.repeaterItemId ? itemsById.get(rec.repeaterItemId) : undefined;
-    const module: ModuleId | 'unknown' = q?.module ?? 'unknown';
+    const moduleId: ModuleId | 'unknown' = q?.module ?? 'unknown';
     const a: SnapshotAnswer = {
       questionId: rec.questionId,
       itemId: rec.repeaterItemId ?? null,
-      module,
+      module: moduleId,
       moduleLabel: q ? MODULE_LABELS[q.module] : 'Other',
       prompt: q?.prompt ?? rec.questionId,
       value: rec.value ?? null,

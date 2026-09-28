@@ -2,12 +2,11 @@
  * Server-only PDF rendering. `@react-pdf/renderer` is imported dynamically so it never
  * lands in a client bundle and only loads when a report is actually rendered.
  */
-import { createElement } from 'react';
 import type { ReportSnapshot } from './snapshot';
 
 export async function renderReportPdf(snapshot: ReportSnapshot): Promise<Buffer> {
-  const [{ renderToBuffer }, { ReportDocument }] = await Promise.all([import('@react-pdf/renderer'), import('./ReportDocument')]);
-  return renderToBuffer(createElement(ReportDocument, { snapshot }));
+  const [{ renderToBuffer }, { reportElement }] = await Promise.all([import('@react-pdf/renderer'), import('./ReportDocument')]);
+  return renderToBuffer(reportElement(snapshot));
 }
 
 /** Storage path for a report PDF (Section 11): {uid}/{caseId}/reports/{reportId}.pdf */

@@ -5,17 +5,17 @@
 import type { AnswerView } from './answers';
 import type { Question, RepeaterItem, RepeaterSpec } from './types';
 
-export function repeaterSpecs(questions: Question[]): RepeaterSpec[] {
+export function repeaterSpecs(questions: readonly Question[]): RepeaterSpec[] {
   const specs: RepeaterSpec[] = [];
   for (const q of questions) if (q.type === 'repeater' && q.repeater) specs.push(q.repeater);
   return specs;
 }
 
-export function childQuestions(questions: Question[], groupId: string): Question[] {
+export function childQuestions(questions: readonly Question[], groupId: string): Question[] {
   return questions.filter((q) => q.repeaterGroup === groupId);
 }
 
-export function repeaterQuestionForGroup(questions: Question[], groupId: string): Question | undefined {
+export function repeaterQuestionForGroup(questions: readonly Question[], groupId: string): Question | undefined {
   return questions.find((q) => q.type === 'repeater' && q.repeater?.groupId === groupId);
 }
 

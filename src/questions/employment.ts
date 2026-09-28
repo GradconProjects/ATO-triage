@@ -39,7 +39,7 @@ const IS_OTHER = eq(Q.emp.occupation, 'other');
 
 export const EMPLOYMENT_QUESTIONS: Question[] = flatten(
   // ---- Employer repeater (always visible; user may have no employer) ----
-  repeater(Q.emp.repeater, 'employment', 'Your employers and other payers this year', {
+  repeater(Q.emp.repeater, 'employment', 'Your employers (plus any other payers) this year', {
     groupId: E,
     itemLabel: 'Employer or payer',
     addLabel: 'Add another employer or payer',

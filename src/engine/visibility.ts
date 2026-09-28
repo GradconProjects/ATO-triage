@@ -73,7 +73,7 @@ const moduleIndex = (q: Question): number => {
 };
 
 /** Bank sorted by MODULE_ORDER, keeping bank order inside each module (stable sort). */
-export function orderQuestions(questions: Question[]): Question[] {
+export function orderQuestions(questions: readonly Question[]): Question[] {
   return questions
     .map((q, i) => ({ q, i }))
     .sort((a, b) => moduleIndex(a.q) - moduleIndex(b.q) || a.i - b.i)
@@ -81,7 +81,7 @@ export function orderQuestions(questions: Question[]): Question[] {
 }
 
 export function visibleQuestions(
-  questions: Question[],
+  questions: readonly Question[],
   answers: AnswerView,
   ctx: CaseContext,
   activeTags: Set<OccupationTag>,
@@ -136,7 +136,7 @@ const HIDEABLE_STATES: readonly AnswerState[] = ['answered', 'not_sure', 'import
  * The old row is kept (append-only); the new row carries the same value and source with
  * version + 1. Records for ids not in the bank are left alone, as are rows already n/a.
  */
-export function hiddenAnswerUpdates(questions: Question[], answers: AnswerView, visible: VisibleQuestion[]): AnswerRecord[] {
+export function hiddenAnswerUpdates(questions: readonly Question[], answers: AnswerView, visible: VisibleQuestion[]): AnswerRecord[] {
   const bankIds = new Set(questions.map((q) => q.id));
   const visibleKeys = visibleKeySet(visible);
   const updates: AnswerRecord[] = [];

@@ -8,12 +8,17 @@ import { listCases, listProfiles } from '@/src/lib/db/repo';
 import { RELATIONSHIP_LABELS, STATUS_LABELS } from '@/src/lib/db/types';
 import { findOccupation } from '@/src/occupations/registry';
 import { formatMoney } from '@/src/lib/utils';
+import { accessForUser } from '@/src/lib/access';
 
 export const metadata = { title: 'Dashboard' };
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const access = user ? await accessForUser(supabase, user) : null;
   const [profiles, cases] = await Promise.all([listProfiles(supabase), listCases(supabase)]);
   const latestEstimates = await supabase.from('estimates').select('case_id, result, created_at').order('created_at', { ascending: false });
   const estimateByCase = new Map<string, { resultCents: number }>();
@@ -25,9 +30,16 @@ export default async function DashboardPage() {
     <AppShell>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Profiles</h1>
-        <Link href="/profiles/new" className={buttonVariants()}>
-          Add profile
-        </Link>
+        <div className="flex gap-2">
+          <a href="/api/export" className={buttonVariants({ variant: 'secondary' })}>
+            Export my data
+          </a>
+          {access?.can.createProfile ? (
+            <Link href="/profiles/new" className={buttonVariants()}>
+              Add profile
+            </Link>
+          ) : null}
+        </div>
       </div>
       {profiles.length === 0 ? (
         <Card className="mt-6">

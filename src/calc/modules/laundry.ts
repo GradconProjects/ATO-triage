@@ -1,5 +1,6 @@
 import { EVIDENCE_OPTIONS, Q } from '../../questions/ids';
 import type { CalcContext } from '../context';
+import { resolvePaid } from '../reimbursement';
 
 export const ELIGIBLE_CLOTHING = ['compulsory_uniform', 'registered_uniform', 'protective', 'occupation_specific'] as const;
 export const ELIGIBLE_DSW_CLOTHING = ['compulsory_logo', 'registered', 'protective'] as const;
@@ -49,6 +50,13 @@ export function computeLaundry(cx: CalcContext): number {
   if (!clothing.eligible) return toReview('Laundry can only be claimed for eligible work clothing (uniform, protective or occupation-specific); none was recorded.', clothing.inputs, raw, formula);
   if (weeks === undefined) return toReview('Number of weeks not answered.', [Q.ded.laundryWeeks], raw, formula);
   if (workOnly + mixed <= 0) return toReview('Loads per week not answered.', [Q.ded.laundryLoadsWorkOnly, Q.ded.laundryLoadsMixed], 0, formula);
+  const paid = resolvePaid(cx, 'ded.laundry', null, raw);
+  if (paid.kind === 'excluded') {
+    cx.setStatus('laundry', 'computed');
+    cx.lines.excluded({ id: 'ded.laundry', section: 'deductions', label: 'Laundry', amountCents: raw, ruleId: `${rules.fy}.laundry`, inputs: [...inputs, ...paid.inputs], formula, note: paid.note ?? 'Reimbursed.', category: 'laundry' });
+    return 0;
+  }
+  if (paid.kind === 'review') return toReview(paid.note ?? 'Reimbursement unknown.', paid.inputs, raw, formula);
   const evidence = cx.a.value(Q.ded.laundryEvidence);
   const evList = typeof evidence === 'string' ? [evidence] : Array.isArray(evidence) ? evidence.filter((x): x is string => typeof x === 'string') : [];
   const noEvidence = evList.length === 0 || evList.includes(EVIDENCE_OPTIONS.none) || evList.includes(EVIDENCE_OPTIONS.estimateOnly);

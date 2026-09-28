@@ -7,6 +7,7 @@ import { QUESTIONS_BY_ID } from '@/src/questions';
 import { validateAnswer } from '@/src/engine';
 import type { FY } from '@/src/engine/types';
 import { rateLimit } from '@/src/lib/rate-limit';
+import { accessForUser } from '@/src/lib/access';
 
 const writeSchema = z.object({
   questionId: z.string().min(1),
@@ -28,6 +29,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+  const access = await accessForUser(supabase, user);
+  if (!access.can.editAnswers) return NextResponse.json({ error: 'Your access level is view only' }, { status: 403 });
   if (!rateLimit(`answers:${user.id}`, 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   const caseRow = await getCase(supabase, caseId);

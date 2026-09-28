@@ -53,7 +53,7 @@ function labelDescribesOutcome(label: string): boolean {
   return l.startsWith('i can claim') || l.includes('you can claim') || l.includes('deductible');
 }
 
-export function lintQuestionBank(questions: Question[]): string[] {
+export function lintQuestionBank(questions: readonly Question[]): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
   const byId = new Map<string, Question>();
