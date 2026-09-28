@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/privacy'];
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/privacy', '/api/auth'];
 
 /** Refresh the Supabase session on every request and redirect unauthenticated users to login. */
 export async function updateSession(request: NextRequest) {

@@ -1,64 +1,89 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input, Label } from '@/components/ui/input';
-import { Alert } from '@/components/ui/alert';
-import { sendMagicLink, signInWithCode, signInWithPassword, signUpWithPassword } from './actions';
+import { useState } from 'react';
+import s from './login.module.css';
 
-type Mode = 'team' | 'password' | 'magic' | 'signup';
+export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
-export function LoginForm({ next }: { next: string }) {
-  const [mode, setMode] = useState<Mode>('team');
-  const [teamState, teamAction, teamPending] = useActionState(signInWithCode, undefined);
-  const [pwState, pwAction, pwPending] = useActionState(signInWithPassword, undefined);
-  const [suState, suAction, suPending] = useActionState(signUpWithPassword, undefined);
-  const [mlState, mlAction, mlPending] = useActionState(sendMagicLink, undefined);
-
-  const state = mode === 'team' ? teamState : mode === 'password' ? pwState : mode === 'signup' ? suState : mlState;
-  const action = mode === 'team' ? teamAction : mode === 'password' ? pwAction : mode === 'signup' ? suAction : mlAction;
-  const pending = teamPending || pwPending || suPending || mlPending;
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!identifier.trim() || !password) {
+      setError('Enter your username or email, and your password.');
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim(), password, next }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; redirect?: string; error?: string };
+      if (res.ok && data.ok) {
+        // Full page load so the session cookie is picked up everywhere.
+        window.location.assign(data.redirect ?? '/dashboard');
+        return;
+      }
+      setError(data.error ?? 'Sign-in failed. Try again.');
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.');
+    }
+    setPending(false);
+  }
 
   return (
-    <div className="mt-6">
-      <div role="tablist" aria-label="Sign-in method" className="flex gap-2">
-        {(['team', 'password', 'magic', 'signup'] as Mode[]).map((m) => (
-          <Button key={m} role="tab" aria-selected={mode === m} variant={mode === m ? 'default' : 'secondary'} size="sm" onClick={() => setMode(m)}>
-            {m === 'team' ? 'Team code' : m === 'password' ? 'Email' : m === 'magic' ? 'Magic link' : 'Create account'}
-          </Button>
-        ))}
+    <form className={s.form} onSubmit={onSubmit} noValidate>
+      <div>
+        <label htmlFor="identifier" className={s.label}>
+          Username or email
+        </label>
+        <input
+          id="identifier"
+          name="username"
+          className={s.input}
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          required
+        />
       </div>
-      <form action={action} className="mt-4 space-y-4">
-        <input type="hidden" name="next" value={next} />
-        {mode === 'team' ? (
-          <>
-            <div>
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" name="username" autoComplete="username" autoCapitalize="none" required className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="code">Code</Label>
-              <Input id="code" name="code" type="password" inputMode="numeric" autoComplete="current-password" required className="mt-1" />
-            </div>
-          </>
-        ) : (
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required className="mt-1" />
-          </div>
-        )}
-        {mode === 'password' || mode === 'signup' ? (
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={8} className="mt-1" />
-          </div>
-        ) : null}
-        {state?.error ? <Alert tone="danger">{state.error}</Alert> : null}
-        {state?.message ? <Alert tone="success">{state.message}</Alert> : null}
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Working…' : mode === 'team' || mode === 'password' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send magic link'}
-        </Button>
-      </form>
-    </div>
+      <div>
+        <label htmlFor="password" className={s.label}>
+          Password
+        </label>
+        <div className={s.pwWrap}>
+          <input
+            id="password"
+            name="password"
+            className={s.input}
+            type={show ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="button" className={s.toggle} onClick={() => setShow((v) => !v)} aria-pressed={show} aria-controls="password">
+            {show ? 'Hide' : 'Show'}
+          </button>
+        </div>
+      </div>
+      {error ? (
+        <p role="alert" className={s.error}>
+          {error}
+        </p>
+      ) : null}
+      <button type="submit" className={s.submit} disabled={pending}>
+        {pending ? 'Signing in…' : 'Sign in'}
+      </button>
+    </form>
   );
 }

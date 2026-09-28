@@ -12,7 +12,7 @@ test.skip(!email || !password, 'E2E_EMAIL and E2E_PASSWORD are not set');
 
 async function signIn(page: Page) {
   await page.goto('/login');
-  await page.getByLabel('Email').fill(email!);
+  await page.getByLabel('Username or email').fill(email!);
   await page.getByLabel('Password').fill(password!);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/dashboard/);
@@ -86,7 +86,7 @@ test('a chef profile never sees support-worker questions', async ({ page }) => {
 
 test('login page is accessible and rejects bad credentials', async ({ page }) => {
   await page.goto('/login');
-  await page.getByLabel('Email').fill('nobody@example.com');
+  await page.getByLabel('Username or email').fill('nobody@example.com');
   await page.getByLabel('Password').fill('wrong-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toBeVisible();

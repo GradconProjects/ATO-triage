@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { createClient } from '@/src/lib/supabase/server';
 import { listProfiles } from '@/src/lib/db/repo';
 import { ProfileSwitcher } from './profile-switcher';
-import { signOut } from '@/app/(auth)/login/actions';
 import { DisclaimerFooter } from './disclaimer';
 import { accessForUser } from '@/src/lib/access';
 import { RESTRICTION_LEVELS } from '@/src/lib/access/seed-users';
@@ -37,7 +36,7 @@ export async function AppShell({ children, currentProfileId }: { children: React
             ) : null}
             <ProfileSwitcher profiles={profiles.map((p) => ({ id: p.id, name: p.display_name }))} currentProfileId={currentProfileId} />
             {user ? (
-              <form action={signOut}>
+              <form action="/api/auth/logout" method="post">
                 <button type="submit" className="text-sm text-muted underline-offset-2 hover:underline">
                   Sign out
                 </button>
