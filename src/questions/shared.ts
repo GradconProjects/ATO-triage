@@ -109,12 +109,18 @@ export function yesNoUnsure(id: string, module: ModuleId, prompt: string, extra?
 
 /** Single choice. Appends `not_sure` unless already present. */
 export function single(id: string, module: ModuleId, prompt: string, options: Option[], extra?: Extra): Question {
-  return { ...base(id, module, 'single', prompt, extra), options: withNotSure(options) };
+  return { ...base(id, module, 'single', prompt, extra), options: withNotSure(options).map(stripExclusive) };
+}
+/** `exclusive` only has meaning on multi questions (lint rule 14). */
+function stripExclusive(o: Option): Option {
+  if (!o.exclusive) return o;
+  const { exclusive: _x, ...rest } = o;
+  return rest;
 }
 
 /** Single choice WITHOUT an automatic `not_sure` (only for allow-listed ids such as core.fy). */
 export function singleAllowListed(id: string, module: ModuleId, prompt: string, options: Option[], extra?: Extra): Question {
-  return { ...base(id, module, 'single', prompt, extra), options };
+  return { ...base(id, module, 'single', prompt, extra), options: options.map(stripExclusive) };
 }
 
 /** Multi choice. Appends an exclusive `not_sure` unless already present. */

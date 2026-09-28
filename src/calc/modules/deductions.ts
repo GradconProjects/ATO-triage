@@ -10,8 +10,10 @@ import { ELIGIBLE_CLOTHING, ELIGIBLE_DSW_CLOTHING, INELIGIBLE_CHEF_CLOTHING } fr
 
 /** Ids owned by the special modules (car, home office, laundry, super contributions). */
 export const SPECIAL_DEDUCTION_IDS = new Set<string>([
-  ...Object.values(Q.ded).filter((v): v is string => typeof v === 'string' && (v.startsWith('ded.car.') || v.startsWith('ded.wfh.') || v.startsWith('ded.laundry.'))),
-  ...Object.values(Q.supc),
+  Q.ded.carAny, Q.ded.carMethod, Q.ded.carKm, Q.ded.carTripTypes, Q.ded.carException, Q.ded.carLogbookPct, Q.ded.carTotalCosts, Q.ded.carPaid, Q.ded.carEvidence,
+  Q.ded.wfhAny, Q.ded.wfhMethod, Q.ded.wfhHours, Q.ded.wfhHoursRecord, Q.ded.wfhActualCosts, Q.ded.wfhWorkPct,
+  Q.ded.laundryAny, Q.ded.laundryLoadsWorkOnly, Q.ded.laundryLoadsMixed, Q.ded.laundryWeeks, Q.ded.laundryEvidence,
+  Q.supc.personalAny, Q.supc.personalAmount, Q.supc.noi, Q.supc.tsbRange, Q.supc.carryForward, Q.supc.spouseAmount,
 ]);
 
 interface KnownDeduction {
