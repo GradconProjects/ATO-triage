@@ -10,7 +10,6 @@ import type { CasePurpose, Relationship } from '@/src/lib/db/types';
 import { AnswerView } from '@/src/engine/answers';
 import { QUESTION_BANK } from '@/src/questions';
 import { Q } from '@/src/questions/ids';
-import { createAdminClient } from '@/src/lib/supabase/admin';
 
 const RELATIONSHIPS: Relationship[] = ['self', 'spouse', 'family', 'client', 'other'];
 const PURPOSES: CasePurpose[] = ['pre_lodgment', 'assessment_review', 'amendment', 'planning'];
@@ -46,7 +45,8 @@ export async function deleteProfileAction(profileId: string) {
   // Storage cleanup for every case under this profile (service role: RLS-scoped listing first).
   const cases = await supabase.from('fy_cases').select('id').eq('profile_id', profileId);
   try {
-    const admin = createAdminClient();
+    // The owner's own session may remove their files (storage delete policy on {uid}/...).
+    const admin = supabase;
     for (const c of cases.data ?? []) {
       const prefix = `${user.id}/${c.id}`;
       const files = await admin.storage.from('case-documents').list(prefix, { limit: 1000 });
@@ -58,7 +58,7 @@ export async function deleteProfileAction(profileId: string) {
       if (paths.length) await admin.storage.from('case-documents').remove(paths);
     }
   } catch {
-    // Service role key not configured (local dev): database cascade still removes rows.
+    // Storage cleanup is best effort; the database cascade still removes every row.
   }
   await deleteProfile(supabase, user.id, profileId);
   revalidatePath('/dashboard');

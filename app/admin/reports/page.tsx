@@ -25,7 +25,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   let reports: Awaited<ReturnType<typeof listAllReports>> = [];
   let error: string | null = null;
   try {
-    reports = await listAllReports();
+    reports = await listAllReports(access.supabase);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Could not load reports';
   }

@@ -26,7 +26,7 @@ export default async function AdminPage() {
   let users: Awaited<ReturnType<typeof listTeamUsers>> = [];
   let error: string | null = null;
   try {
-    users = await listTeamUsers();
+    users = await listTeamUsers(access.supabase);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Could not load users';
   }
@@ -38,7 +38,7 @@ export default async function AdminPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Users and access</h1>
-          <p className="text-sm text-muted">You are signed in as {access.user.email} with no restriction.</p>
+          <p className="text-sm text-muted">You are signed in as {access.displayName} with no restriction.</p>
         </div>
         <Link href="/admin/reports" className={buttonVariants({ variant: 'secondary' })}>
           All reports
@@ -47,8 +47,8 @@ export default async function AdminPage() {
 
       {error ? (
         <Card className="mt-6 border-red-200 bg-red-50">
-          <CardTitle>Service role key not configured</CardTitle>
-          <CardDescription>User management needs SUPABASE_SERVICE_ROLE_KEY on the server. Error: {error}</CardDescription>
+          <CardTitle>Could not load users</CardTitle>
+          <CardDescription>{error}</CardDescription>
         </Card>
       ) : null}
 

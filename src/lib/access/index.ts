@@ -78,9 +78,9 @@ export async function getAccess(): Promise<Access> {
 }
 
 export async function accessForUser(supabase: SupabaseClient, user: User): Promise<Access> {
-  const admin = isAdminEmail(user.email);
   const row = await supabase.from('app_users').select('*').eq('id', user.id).maybeSingle();
   const appUser = (row.data as AppUserRow | null) ?? null;
+  const admin = isAdminEmail(user.email) || appUser?.restriction_level === 'none';
   const level: RestrictionLevel = admin ? 'none' : (appUser?.restriction_level ?? (isTeamEmail(user.email) ? 'standard' : 'full'));
   return {
     user,

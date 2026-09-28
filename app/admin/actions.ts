@@ -15,15 +15,14 @@ function levelFrom(raw: FormDataEntryValue | null): RestrictionLevel {
 export async function createTeamUserAction(_prev: State, formData: FormData): Promise<State> {
   try {
     const access = await requirePermission('manageUsers');
-    const row = await createTeamUser({
+    const row = await createTeamUser(access.supabase, {
       username: String(formData.get('username') ?? ''),
       displayName: String(formData.get('display_name') ?? ''),
       code: String(formData.get('code') ?? ''),
       restrictionLevel: levelFrom(formData.get('restriction_level')),
-      createdBy: access.user.id,
     });
     revalidatePath('/admin');
-    return { message: `Added ${row.display_name} (${row.username}).` };
+    return { message: `Added ${row.displayName} (${row.username}).` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Could not add user' };
   }
@@ -31,14 +30,14 @@ export async function createTeamUserAction(_prev: State, formData: FormData): Pr
 
 export async function setRestrictionAction(userId: string, formData: FormData) {
   const access = await requirePermission('manageUsers');
-  await setRestrictionLevel(userId, levelFrom(formData.get('restriction_level')), access.user.id);
+  await setRestrictionLevel(access.supabase, userId, levelFrom(formData.get('restriction_level')));
   revalidatePath('/admin');
 }
 
 export async function resetCodeAction(userId: string, _prev: State, formData: FormData): Promise<State> {
   try {
     const access = await requirePermission('manageUsers');
-    await resetTeamCode(userId, String(formData.get('code') ?? ''), access.user.id);
+    await resetTeamCode(access.supabase, userId, String(formData.get('code') ?? ''));
     revalidatePath('/admin');
     return { message: 'Code updated.' };
   } catch (e) {
@@ -48,6 +47,6 @@ export async function resetCodeAction(userId: string, _prev: State, formData: Fo
 
 export async function deleteTeamUserAction(userId: string) {
   const access = await requirePermission('manageUsers');
-  await deleteTeamUser(userId, access.user.id);
+  await deleteTeamUser(access.supabase, userId);
   revalidatePath('/admin');
 }
