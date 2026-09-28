@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnswerView, answerKey } from '@/src/engine/answers';
+import { AnswerView } from '@/src/engine/answers';
 import { activeTagSet, computeProgress, visibleQuestions, repeaterSpecs, itemLabel, type VisibleQuestion } from '@/src/engine';
 import { MODULE_LABELS, MODULE_ORDER, type CaseContext, type ModuleId, type Question, type RepeaterItem } from '@/src/engine/types';
 import { QUESTION_BANK } from '@/src/questions';
@@ -21,7 +21,6 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   const store = useInterviewStore();
   const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   const [estimate, setEstimate] = useState<LiveEstimateSummary | null>(null);
-  const [estimating, setEstimating] = useState(false);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readOnly = initial.status === 'final';
 
@@ -47,6 +46,17 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   const idx = order.indexOf(module);
   const prev = idx > 0 ? order[idx - 1] : undefined;
   const next = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : undefined;
+
+  const refreshEstimate = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/cases/${initial.caseId}/calculate`, { method: 'POST' });
+      if (!res.ok) return;
+      const data = (await res.json()) as { summary: LiveEstimateSummary };
+      setEstimate(data.summary);
+    } catch {
+      /* network error: keep the last estimate */
+    }
+  }, [initial.caseId]);
 
   // ---- autosave ----
   const flush = useCallback(async () => {
@@ -92,20 +102,11 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const refreshEstimate = useCallback(async () => {
-    setEstimating(true);
-    try {
-      const res = await fetch(`/api/cases/${initial.caseId}/calculate`, { method: 'POST' });
-      if (!res.ok) return;
-      const data = (await res.json()) as { summary: LiveEstimateSummary };
-      setEstimate(data.summary);
-    } finally {
-      setEstimating(false);
-    }
-  }, [initial.caseId]);
 
   useEffect(() => {
-    void refreshEstimate();
+    // Initial estimate for the live panel, fetched after mount.
+    const t = setTimeout(() => void refreshEstimate(), 0);
+    return () => clearTimeout(t);
   }, [refreshEstimate]);
 
   function onWrite(w: PendingWrite) {
@@ -217,11 +218,11 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
         </div>
       </div>
       <div className="hidden lg:block">
-        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimating} />
+        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimate === null} />
         <p className="mt-3 text-xs text-muted">{progress.overall}% of visible required questions answered.</p>
       </div>
       <div className="lg:hidden">
-        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimating} />
+        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimate === null} />
       </div>
       {specs.length === 0 ? null : null}
     </div>

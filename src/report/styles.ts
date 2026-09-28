@@ -1,0 +1,95 @@
+import { StyleSheet } from '@react-pdf/renderer';
+
+/** Built-in Helvetica only (no font downloads). Neutral, non-ATO palette. */
+export const colors = {
+  ink: '#1f2937',
+  muted: '#6b7280',
+  rule: '#d1d5db',
+  soft: '#f3f4f6',
+  accent: '#1e3a8a',
+  warn: '#92400e',
+  warnBg: '#fef3c7',
+  danger: '#991b1b',
+  dangerBg: '#fee2e2',
+  ok: '#166534',
+  okBg: '#dcfce7',
+  watermark: '#9ca3af',
+};
+
+export const PAGE_MARGIN = 40;
+export const HEADER_HEIGHT = 34;
+export const FOOTER_HEIGHT = 48;
+
+export const styles = StyleSheet.create({
+  page: {
+    fontFamily: 'Helvetica',
+    fontSize: 9.5,
+    color: colors.ink,
+    paddingTop: PAGE_MARGIN + HEADER_HEIGHT,
+    paddingBottom: PAGE_MARGIN + FOOTER_HEIGHT,
+    paddingHorizontal: PAGE_MARGIN,
+    lineHeight: 1.35,
+  },
+  header: {
+    position: 'absolute',
+    top: PAGE_MARGIN - 12,
+    left: PAGE_MARGIN,
+    right: PAGE_MARGIN,
+    height: HEADER_HEIGHT,
+    borderBottomWidth: 0.75,
+    borderBottomColor: colors.rule,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingBottom: 4,
+    fontSize: 8,
+    color: colors.muted,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: PAGE_MARGIN - 20,
+    left: PAGE_MARGIN,
+    right: PAGE_MARGIN,
+    height: FOOTER_HEIGHT,
+    borderTopWidth: 0.75,
+    borderTopColor: colors.rule,
+    paddingTop: 4,
+    fontSize: 7,
+    color: colors.muted,
+  },
+  footerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
+  watermark: {
+    position: 'absolute',
+    top: 330,
+    left: 90,
+    fontSize: 110,
+    fontFamily: 'Helvetica-Bold',
+    color: colors.watermark,
+    opacity: 0.18,
+    transform: 'rotate(-40deg)',
+  },
+  h1: { fontSize: 22, fontFamily: 'Helvetica-Bold', marginBottom: 6, color: colors.accent },
+  h2: { fontSize: 14, fontFamily: 'Helvetica-Bold', marginTop: 16, marginBottom: 8, color: colors.accent },
+  h3: { fontSize: 11, fontFamily: 'Helvetica-Bold', marginTop: 10, marginBottom: 4 },
+  p: { marginBottom: 4 },
+  small: { fontSize: 8, color: colors.muted },
+  bold: { fontFamily: 'Helvetica-Bold' },
+  muted: { color: colors.muted },
+  section: { marginBottom: 8 },
+  box: { borderWidth: 0.75, borderColor: colors.rule, borderRadius: 3, padding: 10, marginBottom: 8 },
+  kvRow: { flexDirection: 'row', marginBottom: 3 },
+  kvKey: { width: 160, color: colors.muted },
+  kvVal: { flex: 1 },
+  badge: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 8, fontSize: 8, fontFamily: 'Helvetica-Bold' },
+  // Tables
+  table: { width: '100%', marginBottom: 8 },
+  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: colors.rule, paddingVertical: 3 },
+  th: { flexDirection: 'row', backgroundColor: colors.soft, borderBottomWidth: 0.75, borderBottomColor: colors.ink, paddingVertical: 4 },
+  cell: { paddingHorizontal: 3 },
+  cellHead: { paddingHorizontal: 3, fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
+  right: { textAlign: 'right' },
+  // Lists
+  li: { flexDirection: 'row', marginBottom: 3 },
+  liBullet: { width: 10 },
+  liBody: { flex: 1 },
+});
