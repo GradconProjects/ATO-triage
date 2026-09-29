@@ -35,6 +35,9 @@ export default function Landing() {
             <a href="#how">How it works</a>
             <a href="#who">Who it&apos;s for</a>
             <Link href="/privacy">Privacy</Link>
+            <Link href="/login?admin=1" className={s.navAdmin}>
+              Admin
+            </Link>
             <Link href="/login" className={s.navCta}>
               Sign in
             </Link>

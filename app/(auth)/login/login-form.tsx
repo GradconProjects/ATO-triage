@@ -1,10 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import s from './login.module.css';
 
-export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
-  const [identifier, setIdentifier] = useState('');
+export function LoginForm({ next, initialError, adminMode = false }: { next: string; initialError?: string; adminMode?: boolean }) {
+  const [identifier, setIdentifier] = useState(adminMode ? 'admin' : '');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [pending, setPending] = useState(false);
@@ -12,8 +13,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!identifier.trim() || !password) {
-      setError('Enter your username or email, and your password.');
+    if ((!adminMode && !identifier.trim()) || !password) {
+      setError(adminMode ? 'Enter the admin code.' : 'Enter your username or email, and your password.');
       return;
     }
     setPending(true);
@@ -22,7 +23,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), password, next }),
+        body: JSON.stringify({ identifier: adminMode ? 'admin' : identifier.trim(), password, next: adminMode ? '/admin' : next }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; redirect?: string; error?: string };
       if (res.ok && data.ok) {
@@ -38,7 +39,11 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
   }
 
   return (
+    <>
+    <h1 className={s.title}>{adminMode ? 'Admin sign in' : 'Sign in'}</h1>
+    <p className={s.sub}>{adminMode ? 'Enter the admin code to see every user’s entries and reports.' : 'Welcome back. Continue your tax interview.'}</p>
     <form className={s.form} onSubmit={onSubmit} noValidate>
+      {adminMode ? null : (
       <div>
         <label htmlFor="identifier" className={s.label}>
           Username or email
@@ -56,9 +61,10 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           required
         />
       </div>
+      )}
       <div>
         <label htmlFor="password" className={s.label}>
-          Password
+          {adminMode ? 'Admin code' : 'Password'}
         </label>
         <div className={s.pwWrap}>
           <input
@@ -66,6 +72,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
             name="password"
             className={s.input}
             type={show ? 'text' : 'password'}
+            inputMode={adminMode ? 'numeric' : undefined}
+            autoFocus={adminMode}
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -82,8 +90,16 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
         </p>
       ) : null}
       <button type="submit" className={s.submit} disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
+        {pending ? 'Signing in…' : adminMode ? 'Sign in as admin' : 'Sign in'}
       </button>
     </form>
+    <p className={s.help}>
+      {adminMode ? (
+        <Link href="/login">← Back to user sign in</Link>
+      ) : (
+        <>Use the username and code your administrator gave you. Administrators: use the <Link href="/login?admin=1">Admin</Link> button.</>
+      )}
+    </p>
+    </>
   );
 }

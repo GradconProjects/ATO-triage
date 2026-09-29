@@ -4,7 +4,7 @@ import s from './login.module.css';
 
 export const metadata = { title: 'Sign in' };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string; admin?: string }> }) {
   const params = await searchParams;
   const next = params.next && params.next.startsWith('/') && !params.next.startsWith('//') ? params.next : '/dashboard';
   return (
@@ -16,16 +16,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </span>
           Tax Intake Adviser
         </Link>
-        <Link href="/" className={s.back}>
-          ← Back to home
-        </Link>
+        <nav className={s.topLinks}>
+          <Link href="/" className={s.back}>
+            ← Home
+          </Link>
+          <Link href="/login?admin=1" className={s.adminBtn}>
+            Admin
+          </Link>
+        </nav>
       </header>
       <main id="main" className={s.center}>
         <div className={s.card}>
-          <h1 className={s.title}>Sign in</h1>
-          <p className={s.sub}>Welcome back. Continue your tax interview.</p>
-          <LoginForm next={next} initialError={params.error} />
-          <p className={s.help}>Team members: use the username and code your administrator gave you. Admins can also sign in with their email address.</p>
+          <LoginForm key={params.admin ? 'admin' : 'user'} next={next} initialError={params.error} adminMode={Boolean(params.admin)} />
         </div>
       </main>
       <footer className={s.foot}>

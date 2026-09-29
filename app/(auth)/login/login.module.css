@@ -207,3 +207,29 @@
     padding: 10px 20px;
   }
 }
+
+.topLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.adminBtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--amber);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.adminBtn:hover {
+  background: #173a2a;
+}
+.help a {
+  color: var(--ink);
+  font-weight: 600;
+}

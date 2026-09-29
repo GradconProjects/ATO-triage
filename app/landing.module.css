@@ -99,6 +99,16 @@
   border-radius: 999px;
   font-weight: 600;
 }
+.navAdmin {
+  color: var(--amber) !important;
+  border: 1px solid rgba(227, 167, 47, 0.6);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.navAdmin:hover {
+  background: rgba(227, 167, 47, 0.12);
+}
 .navCta:hover {
   background: var(--amber);
 }
@@ -579,7 +589,7 @@
   }
 }
 @media (max-width: 560px) {
-  .navLinks a:not(.navCta) {
+  .navLinks a:not(.navCta):not(.navAdmin) {
     display: none;
   }
   .slip {
