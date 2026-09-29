@@ -218,7 +218,9 @@ export const Q = {
     // Car (special module)
     carAny: 'ded.car.any',              // yes_no_unsure
     carMethod: 'ded.car.method',        // single: cents_per_km | logbook | not_sure
-    carKm: 'ded.car.km',                // km
+    carKm: 'ded.car.km',                // km (first car)
+    carCount: 'ded.car.count',          // single: one | two (cents per km: cars used for work)
+    carKm2: 'ded.car.km2',              // km (second car, cents per km)
     carTripTypes: 'ded.car.trip_types', // multi: between_workplaces | client_to_client | home_to_work | bulky_tools | itinerant | other | not_sure
     carException: 'ded.car.exception',  // single: bulky_no_storage | itinerant | home_base | none | not_sure
     carLogbookPct: 'ded.car.logbook_pct', // percent

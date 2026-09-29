@@ -16,6 +16,20 @@ describe('car expenses', () => {
     expect(lineById(est, 'ded.car').amountCents).toBe(c(4400));
     expect(lineById(est, 'ded.car').formula).toContain('capped');
   });
+  it('two cars: each car capped at 5,000 km separately', () => {
+    const est = run([...base, a(Q.ded.carCount, 'two'), a(Q.ded.carKm, 6000), a(Q.ded.carKm2, 1200)]);
+    // (5,000 + 1,200) x 88c
+    expect(lineById(est, 'ded.car').amountCents).toBe(c(5456));
+    expect(lineById(est, 'ded.car').inputs).toContain(Q.ded.carKm2);
+  });
+  it('two cars with the second car km missing -> review', () => {
+    const est = run([...base, a(Q.ded.carCount, 'two'), a(Q.ded.carKm, 1800)]);
+    expect(lineById(est, 'ded.car').status).toBe('manual_review');
+  });
+  it('second car km ignored when one car selected', () => {
+    const est = run([...base, a(Q.ded.carCount, 'one'), a(Q.ded.carKm, 1800), a(Q.ded.carKm2, 900)]);
+    expect(lineById(est, 'ded.car').amountCents).toBe(c(1584));
+  });
   it('exactly 5,000 km', () => {
     expect(lineById(run([...base, a(Q.ded.carKm, 5000)]), 'ded.car').amountCents).toBe(c(4400));
   });

@@ -73,10 +73,19 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     opt('cents_per_km', 'Cents per kilometre (up to 5,000 work km, no receipts needed)', 'A set rate per work kilometre covers all running costs. You need a reasonable basis for the kilometres, such as a diary of trips.'),
     opt('logbook', 'Logbook (work percentage of actual costs)', 'Needs a 12-week logbook plus records of all car costs. Usually better for high work use.'),
   ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR_ON, feeds: ['deductions'], calc: { special: 'car' }, help: 'You can use only one method per car per year.' }),
-  km(Q.ded.carKm, D, 'How many work kilometres did you drive this year?', {
+  single(Q.ded.carCount, D, 'How many of your own cars did you use for work trips?', [
+    opt('one', 'One car'),
+    opt('two', 'Two cars', 'Each car gets its own 5,000 km limit under the cents-per-kilometre method.'),
+  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km')), feeds: ['deductions'], calc: { special: 'car' } }),
+  km(Q.ded.carKm, D, 'How many work kilometres did you drive this year (first car, if you used two)?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km')), feeds: ['deductions'], calc: { special: 'car' },
     validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
     help: 'Only the work trips ticked above. Do not include private trips or ordinary commuting.',
+  }),
+  km(Q.ded.carKm2, D, 'How many work kilometres did you drive in the second car?', {
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
+    help: 'Only work trips in the second car. The 5,000 km limit applies to each car separately.',
   }),
   percent(Q.ded.carLogbookPct, D, 'What work-use percentage does your logbook show?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook')), feeds: ['deductions'], calc: { special: 'car' },
