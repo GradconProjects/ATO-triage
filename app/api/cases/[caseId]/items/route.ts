@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (!spec) return NextResponse.json({ error: 'Unknown group' }, { status: 400 });
   const existing = (await listItems(a.supabase, caseId)).filter((i) => i.groupId === spec.groupId);
   if (spec.maxItems && existing.length >= spec.maxItems) return NextResponse.json({ error: 'Maximum items reached' }, { status: 400 });
-  const item = await createItem(a.supabase, a.user.id, caseId, spec.groupId, existing.length);
+  const item = await createItem(a.supabase, a.caseRow.owner_id, caseId, spec.groupId, existing.length);
   const state = await loadCaseState(a.supabase, a.user.id, caseId);
   return NextResponse.json({ ok: true, item, state: state ? serializeCaseState(state) : null });
 }

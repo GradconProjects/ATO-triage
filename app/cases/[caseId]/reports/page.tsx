@@ -44,7 +44,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ caseId
   const isFinalCase = state.caseRow.status === 'final';
 
   return (
-    <AppShell currentProfileId={state.profile.id}>
+    <AppShell currentProfileId={state.profile.id} editingFor={state.caseRow.owner_id !== user.id ? { name: state.profile.display_name, adminHref: `/admin/cases/${state.caseRow.id}` } : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>

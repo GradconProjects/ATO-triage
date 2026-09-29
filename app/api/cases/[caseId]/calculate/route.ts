@@ -26,7 +26,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
   if (state.caseRow.status !== 'final') {
     await saveEstimate(
       supabase,
-      user.id,
+      state.caseRow.owner_id,
       caseId,
       {
         rule_set_version: run.estimate.ruleSetVersion,

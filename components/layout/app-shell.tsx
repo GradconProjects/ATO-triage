@@ -6,7 +6,7 @@ import { DisclaimerFooter } from './disclaimer';
 import { accessForUser } from '@/src/lib/access';
 import { RESTRICTION_LEVELS } from '@/src/lib/access/seed-users';
 
-export async function AppShell({ children, currentProfileId }: { children: React.ReactNode; currentProfileId?: string }) {
+export async function AppShell({ children, currentProfileId, editingFor }: { children: React.ReactNode; currentProfileId?: string; editingFor?: { name: string; adminHref: string } }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -45,6 +45,18 @@ export async function AppShell({ children, currentProfileId }: { children: React
           </div>
         </div>
       </header>
+      {editingFor ? (
+        <div className="border-b border-amber-300 bg-amber-50">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm text-amber-900">
+            <span>
+              <strong>Admin:</strong> you are filling in <strong>{editingFor.name}</strong>. Changes save to their profile and they will see them.
+            </span>
+            <Link href={editingFor.adminHref} className="font-medium underline">
+              Back to admin view
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <main id="main" className="mx-auto max-w-5xl px-4 py-6">
         {children}
       </main>

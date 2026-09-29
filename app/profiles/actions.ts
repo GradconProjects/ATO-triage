@@ -72,13 +72,16 @@ export async function createCaseAction(profileId: string, formData: FormData) {
   const copyFrom = String(formData.get('copy_from') ?? '');
   if (!FINANCIAL_YEARS.includes(financial_year)) throw new Error('Choose a financial year');
   if (!PURPOSES.includes(purpose)) throw new Error('Choose a purpose');
-  const row = await createCase(supabase, user.id, { profile_id: profileId, financial_year, purpose });
+  // A tax year belongs to the profile's owner, including when an admin starts it for them.
+  const owner = await supabase.from('profiles').select('owner_id').eq('id', profileId).single();
+  const ownerId = (owner.data?.owner_id as string | undefined) ?? user.id;
+  const row = await createCase(supabase, ownerId, { profile_id: profileId, financial_year, purpose });
   // The FY and purpose are facts the user chose on this form; record them as answered.
-  await appendAnswers(supabase, user.id, row.id, [
+  await appendAnswers(supabase, ownerId, row.id, [
     { questionId: Q.core.fy, repeaterItemId: null, value: financial_year, state: 'answered', source: 'user' },
     { questionId: Q.core.purpose, repeaterItemId: null, value: purpose, state: 'answered', source: 'user' },
   ]);
-  if (copyFrom) await copyStableFacts(supabase, user.id, copyFrom, row.id);
+  if (copyFrom) await copyStableFacts(supabase, ownerId, copyFrom, row.id);
   revalidatePath(`/profiles/${profileId}`);
   redirect(`/cases/${row.id}/interview/core`);
 }

@@ -56,7 +56,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   // Render + upload BEFORE the immutable insert so pdf_path can be written once.
   const reportId = crypto.randomUUID();
-  const pdfPath = reportPdfPath(user.id, caseId, reportId);
+  const ownerId = state.caseRow.owner_id;
+  const pdfPath = reportPdfPath(ownerId, caseId, reportId);
   let storedPath: string | null = null;
   try {
     const pdf = await renderReportPdf(snapshot);
@@ -69,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const inserted = await supabase
     .from('reports')
-    .insert({ id: reportId, case_id: caseId, owner_id: user.id, snapshot, pdf_path: storedPath, is_final: wantFinal })
+    .insert({ id: reportId, case_id: caseId, owner_id: ownerId, snapshot, pdf_path: storedPath, is_final: wantFinal })
     .select('*')
     .single();
   if (inserted.error) {
@@ -79,7 +80,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   }
   const row = inserted.data as ReportRow;
 
-  if (wantFinal) await updateCaseStatus(supabase, user.id, caseId, 'final', snapshot.ruleSetVersion);
+  if (wantFinal) await updateCaseStatus(supabase, ownerId, caseId, 'final', snapshot.ruleSetVersion);
   await audit(supabase, user.id, 'report', row.id, 'generate', {
     is_final: wantFinal,
     rule_set_version: snapshot.ruleSetVersion,

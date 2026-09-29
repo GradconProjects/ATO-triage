@@ -20,7 +20,7 @@ export default async function InterviewModulePage({ params }: { params: Promise<
   const state = await loadCaseState(supabase, user.id, caseId);
   if (!state) notFound();
   return (
-    <AppShell currentProfileId={state.profile.id}>
+    <AppShell currentProfileId={state.profile.id} editingFor={state.caseRow.owner_id !== user.id ? { name: state.profile.display_name, adminHref: `/admin/cases/${state.caseRow.id}` } : undefined}>
       <ModulePage initial={serializeCaseState(state)} module={module as ModuleId} />
     </AppShell>
   );

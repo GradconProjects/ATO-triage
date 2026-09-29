@@ -33,7 +33,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ caseId:
   const ticked = state.view.list(Q.gate.checks) ?? [];
 
   return (
-    <AppShell currentProfileId={state.profile.id}>
+    <AppShell currentProfileId={state.profile.id} editingFor={state.caseRow.owner_id !== user.id ? { name: state.profile.display_name, adminHref: `/admin/cases/${state.caseRow.id}` } : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Review</h1>

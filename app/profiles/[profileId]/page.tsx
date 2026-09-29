@@ -29,7 +29,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
   const deleteProfile = deleteProfileAction.bind(null, profileId);
 
   return (
-    <AppShell currentProfileId={profileId}>
+    <AppShell currentProfileId={profileId} editingFor={access && profile.owner_id !== access.user.id ? { name: profile.display_name, adminHref: `/admin/users/${profile.owner_id}` } : undefined}>
       <h1 className="text-2xl font-semibold">{profile.display_name}</h1>
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>

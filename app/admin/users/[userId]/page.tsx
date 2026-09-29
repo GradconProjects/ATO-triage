@@ -29,12 +29,17 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
       <div className="mt-4 space-y-4">
         {d.profiles.map((p) => (
           <section key={p.id} className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-lg font-semibold">{p.name}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">{p.name}</h2>
+              <Link href={`/profiles/${p.id}`} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-slate-50">
+                Edit profile / add tax year
+              </Link>
+            </div>
             <p className="text-sm text-muted">{p.occupations.map((o) => findOccupation(o)?.label ?? o).join(', ') || 'No occupation set'}</p>
             <ul className="mt-3 space-y-2">
               {p.cases.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/admin/cases/${c.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:border-primary">
+                <li key={c.id} className="flex flex-wrap items-stretch gap-2">
+                  <Link href={`/admin/cases/${c.id}`} className="flex flex-1 flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:border-primary">
                     <span>
                       <span className="font-medium">{c.fy}</span> <Badge>{c.status}</Badge>
                       <span className="block text-xs text-muted">
@@ -45,6 +50,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
                     <span className="text-sm font-medium">
                       {c.resultCents === null ? 'View answers →' : `${c.resultCents < 0 ? 'Debt' : 'Refund'} ${formatMoney(Math.abs(c.resultCents))} →`}
                     </span>
+                  </Link>
+                  <Link href={`/cases/${c.id}/interview/core`} className="inline-flex items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-blue-800">
+                    Edit answers
                   </Link>
                 </li>
               ))}

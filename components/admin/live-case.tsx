@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { CaseLive } from '@/src/lib/admin/live';
 import { formatMoney } from '@/src/lib/utils';
 import { usePoll } from './use-poll';
@@ -25,6 +26,20 @@ export function LiveCase({ caseId, initial }: { caseId: string; initial: CaseLiv
           <p className="text-2xl font-semibold">{c.resultCents === null ? '—' : formatMoney(Math.abs(c.resultCents))}</p>
           {c.confidence ? <p className="text-xs text-muted">confidence {c.confidence}</p> : null}
           <LiveDot at={at} error={error} />
+        </div>
+        <div className="flex w-full flex-wrap gap-2 border-t border-border pt-3">
+          <Link href={`/cases/${caseId}/interview/core`} className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-blue-800">
+            Edit answers
+          </Link>
+          <Link href={`/cases/${caseId}/review`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-slate-50">
+            Review flags
+          </Link>
+          <Link href={`/cases/${caseId}/estimate`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-slate-50">
+            Estimate
+          </Link>
+          <Link href={`/cases/${caseId}/reports`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-slate-50">
+            Reports
+          </Link>
         </div>
       </div>
       {c.modules.length === 0 ? <p className="mt-6 text-sm text-muted">No answers yet. They appear here as they are typed.</p> : null}

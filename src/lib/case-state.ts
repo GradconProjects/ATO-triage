@@ -40,7 +40,8 @@ export async function loadCaseState(db: SupabaseClient, ownerId: string, caseId:
   let state = buildCaseState(caseRow, profile, answers, items);
   const hidden = hiddenAnswerUpdates(QUESTION_BANK, state.view, state.visible);
   if (hidden.length && caseRow.status !== 'final') {
-    const appended = await appendAnswers(db, ownerId, caseId, hidden.map((h) => ({ questionId: h.questionId, repeaterItemId: h.repeaterItemId, value: h.value, state: h.state, source: h.source })));
+    // Rows always belong to the case owner, even when an admin is the one editing.
+    const appended = await appendAnswers(db, caseRow.owner_id, caseId, hidden.map((h) => ({ questionId: h.questionId, repeaterItemId: h.repeaterItemId, value: h.value, state: h.state, source: h.source })));
     answers = [...answers, ...appended];
     items = state.items;
     state = buildCaseState(caseRow, profile, answers, items);

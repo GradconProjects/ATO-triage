@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   await appendAnswers(
     supabase,
-    user.id,
+    caseRow.owner_id,
     caseId,
     accepted.map((w) => ({ ...w, value: w.state === 'answered' ? w.value : w.state === 'not_sure' ? (w.value ?? 'not_sure') : null })),
   );
