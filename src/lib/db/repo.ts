@@ -16,8 +16,9 @@ export async function audit(db: Db, ownerId: string, entity: string, entityId: s
 }
 
 // ---------- profiles ----------
-export async function listProfiles(db: Db): Promise<ProfileRow[]> {
-  return unwrap(await db.from('profiles').select('*').order('created_at', { ascending: true }));
+/** Profiles owned by one user. Always filtered by owner so admins' own lists stay their own. */
+export async function listProfiles(db: Db, ownerId: string): Promise<ProfileRow[]> {
+  return unwrap(await db.from('profiles').select('*').eq('owner_id', ownerId).order('created_at', { ascending: true }));
 }
 
 export async function getProfile(db: Db, id: string): Promise<ProfileRow | null> {
@@ -58,8 +59,8 @@ export async function listCasesForProfile(db: Db, profileId: string): Promise<Ca
   return unwrap(await db.from('fy_cases').select('*').eq('profile_id', profileId).order('financial_year', { ascending: false }));
 }
 
-export async function listCases(db: Db): Promise<CaseRow[]> {
-  return unwrap(await db.from('fy_cases').select('*').order('created_at', { ascending: false }));
+export async function listCases(db: Db, ownerId: string): Promise<CaseRow[]> {
+  return unwrap(await db.from('fy_cases').select('*').eq('owner_id', ownerId).order('created_at', { ascending: false }));
 }
 
 export async function getCase(db: Db, id: string): Promise<CaseRow | null> {

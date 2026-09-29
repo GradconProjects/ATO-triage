@@ -19,8 +19,9 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
   const access = user ? await accessForUser(supabase, user) : null;
-  const [profiles, cases] = await Promise.all([listProfiles(supabase), listCases(supabase)]);
-  const latestEstimates = await supabase.from('estimates').select('case_id, result, created_at').order('created_at', { ascending: false });
+  const ownerId = user?.id ?? '';
+  const [profiles, cases] = await Promise.all([listProfiles(supabase, ownerId), listCases(supabase, ownerId)]);
+  const latestEstimates = await supabase.from('estimates').select('case_id, result, created_at').eq('owner_id', ownerId).order('created_at', { ascending: false });
   const estimateByCase = new Map<string, { resultCents: number }>();
   for (const e of (latestEstimates.data ?? []) as { case_id: string; result: { totals?: { resultCents?: number } } }[]) {
     if (!estimateByCase.has(e.case_id)) estimateByCase.set(e.case_id, { resultCents: e.result?.totals?.resultCents ?? 0 });

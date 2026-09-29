@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/src/lib/supabase/server';
-import { codeToPassword, ensureSeedUser } from '@/src/lib/access';
+import { accessForUser, codeToPassword, ensureSeedUser } from '@/src/lib/access';
 import { teamEmail } from '@/src/lib/access/seed-users';
 import { rateLimit } from '@/src/lib/rate-limit';
 import { recordServerError } from '@/src/lib/record-error';
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!isEmail) await ensureSeedUser(username).catch(() => false);
 
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword(
+    const { data: signed, error } = await supabase.auth.signInWithPassword(
       isEmail ? { email: identifier, password } : { email: teamEmail(username), password: codeToPassword(username, password) },
     );
     if (error) {
@@ -45,7 +45,13 @@ export async function POST(request: Request) {
           : 'Sign-in failed. Try again in a moment.';
       return NextResponse.json({ error: msg }, { status: 401 });
     }
-    return NextResponse.json({ ok: true, redirect: next });
+    // Admins go straight to the live admin view unless they asked for a specific page.
+    let redirect = next;
+    if (signed?.user && next === '/dashboard') {
+      const access = await accessForUser(supabase, signed.user).catch(() => null);
+      if (access?.isAdmin) redirect = '/admin';
+    }
+    return NextResponse.json({ ok: true, redirect });
   } catch (e) {
     await recordServerError(e, 'POST', '/api/auth/login');
     return NextResponse.json({ error: 'Something went wrong signing in. It has been recorded.' }, { status: 500 });

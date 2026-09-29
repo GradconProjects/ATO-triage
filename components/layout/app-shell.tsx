@@ -11,7 +11,7 @@ export async function AppShell({ children, currentProfileId }: { children: React
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const profiles = user ? await listProfiles(supabase) : [];
+  const profiles = user ? await listProfiles(supabase, user.id) : [];
   const access = user ? await accessForUser(supabase, user) : null;
   const levelLabel = access ? (RESTRICTION_LEVELS.find((l) => l.value === access.level)?.label ?? access.level) : null;
 
