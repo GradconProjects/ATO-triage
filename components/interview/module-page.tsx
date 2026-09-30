@@ -11,6 +11,7 @@ import type { ClientCaseState } from '@/src/lib/case-state';
 import { QuestionCard } from './question-card';
 import { ModuleNav, type ModuleNavEntry } from './module-nav';
 import { LiveEstimatePanel, type LiveEstimateSummary } from './live-estimate';
+import { StatementUpload } from './statement-upload';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/src/lib/utils';
 
@@ -168,6 +169,16 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
           {readOnly ? ' · Final (read-only)' : ''}
         </p>
         <div className="mt-4 space-y-4">
+          {module === 'employment' && !readOnly ? (
+            <StatementUpload
+              caseId={initial.caseId}
+              onApplied={async (state) => {
+                await flush();
+                store.applyServer(state.answers, state.items);
+                void refreshEstimate();
+              }}
+            />
+          ) : null}
           {topLevel.length === 0 ? <p className="text-sm text-muted">Nothing to answer in this section for this profile.</p> : null}
           {topLevel.map((v) => {
             const q = v.question;
