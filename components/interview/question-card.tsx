@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import type { AnswerRecord, CaseContext, DateRangeValue, Option, Question } from '@/src/engine/types';
-import { formatCents, parseMoneyToCents, validateAnswer } from '@/src/engine/validation';
+import { formatCents, fyDateBounds, parseMoneyToCents, validateAnswer } from '@/src/engine/validation';
 import { cn } from '@/src/lib/utils';
 import { questionTip } from '@/src/questions/tips';
 import type { PendingWrite } from '@/src/lib/store/interview-store';
@@ -158,7 +158,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
           />
         ) : null}
         {q.type === 'date_range' ? (
-          <DateRangeInput id={id} value={value as DateRangeValue | undefined} readOnly={readOnly} onCommit={(v) => write(v)} />
+          <DateRangeInput id={id} fy={ctx.fy} value={value as DateRangeValue | undefined} readOnly={readOnly} onCommit={(v) => write(v)} />
         ) : null}
         {q.type === 'text' ? (
           <input
@@ -374,22 +374,39 @@ function NumberInput({
   );
 }
 
-function DateRangeInput({ id, value, readOnly, onCommit }: { id: string; value: DateRangeValue | undefined; readOnly?: boolean; onCommit(v: DateRangeValue): void }) {
+function DateRangeInput({ id, fy, value, readOnly, onCommit }: { id: string; fy: CaseContext['fy']; value: DateRangeValue | undefined; readOnly?: boolean; onCommit(v: DateRangeValue): void }) {
+  const bounds = fyDateBounds(fy);
   const [from, setFrom] = useState(value?.from ?? '');
   const [to, setTo] = useState(value?.to ?? '');
+  const wholeYear = from === bounds.from && to === bounds.to;
+  const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
   function commit(f: string, t: string) {
     if (f && t) onCommit({ from: f, to: t });
   }
+  function toggleWholeYear(checked: boolean) {
+    const f = checked ? bounds.from : '';
+    const t = checked ? bounds.to : '';
+    setFrom(f);
+    setTo(t);
+    if (checked) commit(f, t);
+  }
+  const inputCls = 'min-h-11 rounded-md border border-border bg-card px-3 disabled:opacity-60';
   return (
-    <div className="flex flex-wrap gap-3">
-      <label className="text-sm">
-        <span className="block text-xs text-muted">From</span>
-        <input id={`${id}-from`} type="date" className="min-h-11 rounded-md border border-border bg-card px-3" value={from} readOnly={readOnly} onChange={(e) => setFrom(e.target.value)} onBlur={() => commit(from, to)} />
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="h-5 w-5" checked={wholeYear} disabled={readOnly} onChange={(e) => toggleWholeYear(e.target.checked)} />
+        The whole tax year ({fmt(bounds.from)} to {fmt(bounds.to)})
       </label>
-      <label className="text-sm">
-        <span className="block text-xs text-muted">To</span>
-        <input id={`${id}-to`} type="date" className="min-h-11 rounded-md border border-border bg-card px-3" value={to} readOnly={readOnly} onChange={(e) => setTo(e.target.value)} onBlur={() => commit(from, to)} />
-      </label>
+      <div className="flex flex-wrap gap-3">
+        <label className="text-sm">
+          <span className="block text-xs text-muted">From</span>
+          <input id={`${id}-from`} type="date" min={bounds.from} max={bounds.to} className={inputCls} value={from} readOnly={readOnly} disabled={wholeYear} onChange={(e) => setFrom(e.target.value)} onBlur={() => commit(from, to)} />
+        </label>
+        <label className="text-sm">
+          <span className="block text-xs text-muted">To</span>
+          <input id={`${id}-to`} type="date" min={bounds.from} max={bounds.to} className={inputCls} value={to} readOnly={readOnly} disabled={wholeYear} onChange={(e) => setTo(e.target.value)} onBlur={() => commit(from, to)} />
+        </label>
+      </div>
     </div>
   );
 }
