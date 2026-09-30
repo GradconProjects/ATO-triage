@@ -19,6 +19,8 @@ export const colors = {
 export const PAGE_MARGIN = 40;
 export const HEADER_HEIGHT = 34;
 export const FOOTER_HEIGHT = 48;
+/** A4 page height in points. */
+export const A4_HEIGHT = 841.89;
 
 export const styles = StyleSheet.create({
   page: {
@@ -47,11 +49,12 @@ export const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: PAGE_MARGIN - 20,
+    // Anchored from the top: a bottom-anchored footer without a height makes react-pdf grow
+    // its box on every page until the numbers overflow (HTTP 500 on long reports). A fixed
+    // height would collapse the dynamic "Page x of y" Text, so the height stays content-based.
+    top: A4_HEIGHT - FOOTER_HEIGHT - 8,
     left: PAGE_MARGIN,
     right: PAGE_MARGIN,
-    // No fixed height: with the page-level lineHeight a fixed height collapses the
-    // dynamic "Page x of y" Text to zero. Space is reserved by page.paddingBottom instead.
     borderTopWidth: 0.75,
     borderTopColor: colors.rule,
     paddingTop: 4,

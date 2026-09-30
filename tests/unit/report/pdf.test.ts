@@ -224,6 +224,13 @@ describe('ReportDocument', () => {
     expect(buf.byteLength).toBeGreaterThan(2_000);
   }, 60_000);
 
+  it('renders a long multi-page report (fixed footer must not grow page by page)', async () => {
+    const s = snapshotFor(false);
+    const many = Array.from({ length: 40 }, (_, n) => s.answers.map((a) => ({ ...a, questionId: `${a.questionId}.${n}` }))).flat();
+    const buf = await renderToBuffer(reportElement({ ...s, answers: many }));
+    expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  }, 120_000);
+
   it('renders an empty-ish snapshot (no lines, no flags, no answers) without throwing', async () => {
     const s = snapshotFor(true);
     const empty: ReportSnapshot = {
