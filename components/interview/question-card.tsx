@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import type { AnswerRecord, CaseContext, DateRangeValue, Option, Question } from '@/src/engine/types';
 import { formatCents, parseMoneyToCents, validateAnswer } from '@/src/engine/validation';
 import { cn } from '@/src/lib/utils';
+import { questionTip } from '@/src/questions/tips';
 import type { PendingWrite } from '@/src/lib/store/interview-store';
 
 export interface QuestionCardProps {
@@ -54,6 +55,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
   }
 
   const errors = [...localError, ...(serverErrors ?? [])];
+  const tip = questionTip(q.id, ctx.fy);
   const options = q.type === 'yes_no_unsure' ? YES_NO_UNSURE : (q.options ?? []);
 
   return (
@@ -73,6 +75,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
           </button>
         ) : null}
       </div>
+      {tip ? <p className="mt-1 text-sm italic leading-snug text-slate-500">{tip}</p> : null}
       {showHelp && q.help ? <p className="mt-2 rounded bg-accent p-2 text-sm">{q.help}</p> : null}
 
       {isImported ? (
