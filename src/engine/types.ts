@@ -351,7 +351,14 @@ export interface AnswerRecord {
   state: AnswerState;
   source: AnswerSource;
   version: number;
+  /** Where a prefilled or imported value came from (prior-year case or uploaded document). */
+  sourceRef?: SourceRef;
 }
+
+/** Provenance of a prefilled answer. It never makes the value count: `imported` answers still need confirming. */
+export type SourceRef =
+  | { kind: 'prior_year'; fromCaseId?: string; fy: string; category: 'reusable' | 'opening_balance' | 'annual_fact'; documentId?: string; fileName?: string; note?: string }
+  | { kind: 'document'; documentId: string; fileName?: string };
 
 export interface RepeaterItem {
   id: string;

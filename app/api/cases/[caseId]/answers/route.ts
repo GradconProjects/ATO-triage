@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/src/lib/supabase/server';
-import { appendAnswers, getCase } from '@/src/lib/db/repo';
+import { appendAnswers, getCase, listAnswers } from '@/src/lib/db/repo';
 import { loadCaseState, serializeCaseState } from '@/src/lib/case-state';
 import { QUESTIONS_BY_ID } from '@/src/questions';
 import { validateAnswer } from '@/src/engine';
-import type { FY } from '@/src/engine/types';
+import type { AnswerRecord, FY } from '@/src/engine/types';
 import { rateLimit } from '@/src/lib/rate-limit';
 import { accessForUser } from '@/src/lib/access';
 
@@ -57,11 +57,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     return true;
   });
 
+  // Confirming a prefilled value keeps its provenance (which year or document it came from).
+  const refs = new Map<string, NonNullable<AnswerRecord['sourceRef']>>();
+  if (accepted.some((w) => w.source === 'prefill_confirmed')) {
+    for (const r of await listAnswers(supabase, caseId)) if (r.sourceRef) refs.set(`${r.questionId}@${r.repeaterItemId ?? ''}`, r.sourceRef);
+  }
   await appendAnswers(
     supabase,
     caseRow.owner_id,
     caseId,
-    accepted.map((w) => ({ ...w, value: w.state === 'answered' ? w.value : w.state === 'not_sure' ? (w.value ?? 'not_sure') : null })),
+    accepted.map((w) => {
+      const ref = w.source === 'prefill_confirmed' ? refs.get(`${w.questionId}@${w.repeaterItemId ?? ''}`) : undefined;
+      return { ...w, value: w.state === 'answered' ? w.value : w.state === 'not_sure' ? (w.value ?? 'not_sure') : null, ...(ref ? { sourceRef: ref } : {}) };
+    }),
   );
   const state = await loadCaseState(supabase, user.id, caseId);
   if (!state) return NextResponse.json({ error: 'Not found' }, { status: 404 });

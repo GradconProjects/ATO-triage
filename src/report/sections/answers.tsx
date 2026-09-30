@@ -1,6 +1,6 @@
 import { Text, View } from '@react-pdf/renderer';
 import { answerDisplay, answerLabel, groupAnswers } from '../group-answers';
-import type { ReportSnapshot } from '../snapshot';
+import type { ReportSnapshot, SnapshotAnswer } from '../snapshot';
 import { styles } from '../styles';
 import { SectionTitle } from './chrome';
 import { Table } from './table';
@@ -29,7 +29,7 @@ export function AnswersSection({ snapshot }: { snapshot: ReportSnapshot }) {
               _key: `${a.questionId}-${a.itemId ?? ''}-${i}`,
               q: answerLabel(a),
               a: answerDisplay(a),
-              s: a.source === 'document' ? 'Imported' : a.source === 'prefill_confirmed' ? 'Confirmed' : 'Entered',
+              s: sourceText(a),
             }))}
             empty="No current answers in this module."
           />
@@ -48,4 +48,15 @@ export function AnswersSection({ snapshot }: { snapshot: ReportSnapshot }) {
       ))}
     </View>
   );
+}
+
+const LOSS_IDS = new Set(['cgt.prior_losses', 'bus.prior_deferred', 'bus.activity.prior_deferred', 'cgt.prior_losses.origin', 'cgt.prior_losses.correction']);
+
+/** Source column: how the answer was entered, where a prefill came from, and loss-answer amendments. */
+export function sourceText(a: SnapshotAnswer): string {
+  const base = a.source === 'document' ? 'Imported' : a.source === 'prefill_confirmed' ? 'Confirmed' : 'Entered';
+  const ref = a.sourceRef;
+  const from = !ref ? '' : ref.kind === 'document' ? ` from ${ref.fileName ?? 'a document'}` : ` from ${ref.fileName ?? `${ref.fy} case`}${ref.category === 'opening_balance' ? ' (opening balance)' : ''}`;
+  const amended = LOSS_IDS.has(a.questionId) && (a.answerVersion ?? 1) > 1 ? `; changed ${(a.answerVersion ?? 1) - 1}x` : '';
+  return `${base}${from}${amended}`;
 }

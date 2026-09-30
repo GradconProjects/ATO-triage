@@ -48,18 +48,59 @@ Rules:
 - Never include a tax file number anywhere in the output, even in notes.
 - Amounts are Australian dollars; drop $ signs and commas.`;
 
+/** A prior-year notice of assessment, return or activity statement: closing balances only. */
+export const ExtractedPriorYear = z.object({
+  documentKind: z.enum(['notice_of_assessment', 'tax_return', 'activity_statement', 'other']),
+  financialYear: z.string().nullable().describe('Income year the document is for, as "YYYY-YY". null if not shown.'),
+  taxableIncome: dollars.describe('Taxable income for that year.'),
+  netCapitalLossesCarriedForward: dollars.describe('Net capital losses carried forward to later income years (the closing balance).'),
+  deferredLosses: z.array(z.object({
+    activity: z.string().describe('The business activity the deferred non-commercial loss belongs to, as described.'),
+    amount: z.number().describe('Deferred loss carried forward, in dollars.'),
+  })).describe('Deferred non-commercial business losses carried forward, one per activity. Empty if none shown.'),
+  notes: z.string().describe('Anything unclear, in one or two plain sentences. Empty string if none.'),
+});
+export type ExtractedPriorYear = z.infer<typeof ExtractedPriorYear>;
+
 export function extractionAvailable(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
+}
+
+function fileBlock(file: { data: Buffer; mediaType: ExtractMediaType }): Anthropic.Beta.BetaContentBlockParam {
+  const b64 = file.data.toString('base64');
+  return file.mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+    : { type: 'image', source: { type: 'base64', media_type: file.mediaType, data: b64 } };
+}
+
+const PRIOR_SYSTEM = `You read an Australian individual's earlier-year tax document (ATO notice of assessment, tax return or activity statement) and return only closing balances for the next year.
+Rules:
+- Report only figures printed on the document. Never estimate, add up or calculate a missing figure; use null.
+- Capital losses and deferred non-commercial business losses are different things; never put one in the other.
+- Never include a tax file number anywhere in the output, even in notes.
+- Amounts are Australian dollars; drop $ signs and commas.`;
+
+/** Read a prior-year document for opening balances. */
+export async function extractPriorYear(file: { data: Buffer; mediaType: ExtractMediaType }): Promise<ExtractedPriorYear> {
+  const client = new Anthropic();
+  const response = await client.beta.messages.parse({
+    model: 'claude-opus-5-5',
+    max_tokens: 16000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: 'low', format: betaZodOutputFormat(ExtractedPriorYear) },
+    system: PRIOR_SYSTEM,
+    messages: [{ role: 'user', content: [fileBlock(file), { type: 'text', text: 'Extract the closing balances from this document.' }] }],
+  });
+  if (response.stop_reason === 'refusal') throw new Error('The document could not be read. Enter the balances by hand.');
+  if (!response.parsed_output) throw new Error('The document could not be read clearly. Try a clearer copy or enter the balances by hand.');
+  return response.parsed_output;
 }
 
 /** Send one statement (PDF or image) to Claude and return the structured figures. */
 export async function extractStatement(file: { data: Buffer; mediaType: ExtractMediaType }): Promise<ExtractedStatement> {
   const client = new Anthropic();
-  const b64 = file.data.toString('base64');
-  const source: Anthropic.Beta.BetaContentBlockParam =
-    file.mediaType === 'application/pdf'
-      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
-      : { type: 'image', source: { type: 'base64', media_type: file.mediaType, data: b64 } };
+  const source = fileBlock(file);
   const response = await client.beta.messages.parse({
     model: 'claude-opus-5-5',
     max_tokens: 16000,

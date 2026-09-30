@@ -121,6 +121,7 @@ export function rowToRecord(r: AnswerRow): AnswerRecord {
     state: r.state,
     source: r.source,
     version: r.version,
+    ...(r.source_ref ? { sourceRef: r.source_ref } : {}),
   };
 }
 
@@ -155,6 +156,7 @@ export async function appendAnswers(db: Db, ownerId: string, caseId: string, rec
       state: rec.state,
       source: rec.source,
       version,
+      ...(rec.sourceRef ? { source_ref: rec.sourceRef } : {}),
     };
   });
   const inserted = unwrap(await db.from('answers').insert(rows).select('*')) as AnswerRow[];

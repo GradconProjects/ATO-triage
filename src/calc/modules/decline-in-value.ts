@@ -45,6 +45,8 @@ export interface DeclineArgs {
   /** `${base}.effective_life` and `${base}.date` question ids. */
   effectiveLifeQ: string;
   dateQ: string;
+  /** `${base}.opening_value`: opening adjustable value for an item first used before this FY. */
+  openingValueQ?: string;
   /** Key of the amount answer (for uncertainInputs). */
   key: string;
 }
@@ -84,6 +86,33 @@ export function declineInValueLine(cx: CalcContext, a: DeclineArgs): number {
     dateNote = date ? ' (date not recognised: full year assumed)' : ' (no date answered: full year assumed)';
     cx.assume(`${a.label}: date first used not answered; decline in value computed for a full year.`);
   }
+  // First used before this year: never restart from the original cost at the first-year rate.
+  // Decline continues from the opening adjustable value (last year's closing value).
+  const firstUsedEarlier = date !== undefined && days === 365 && (() => { const d = parseIsoDate(date); const s = parseIsoDate(fyBounds(cx.fy).from); return d !== undefined && s !== undefined && d < s; })();
+  if (firstUsedEarlier) {
+    const opening = a.openingValueQ ? cx.scopedCents(a.openingValueQ, a.itemId) : undefined;
+    if (opening === undefined) {
+      cx.setStatus('decline_in_value', 'manual_review');
+      cx.review('decline_in_value', `${a.label}: first used before this year, so the decline continues from its opening value, not its original cost.`, [a.dateQ, ...(a.openingValueQ ? [a.openingValueQ] : [])], a.costCents);
+      cx.markUncertain(a.key);
+      cx.lines.review({
+        id, section: 'deductions', label: `${a.label} (decline in value)`, amountCents: 0, ruleId: `${cx.rules.fy}.declineInValue`,
+        inputs: [...a.inputs, a.effectiveLifeQ, a.dateQ], formula: `first used ${date}, before this year: needs the opening adjustable value`,
+        note: 'Enter the value at the start of this year (cost less earlier years\' decline). The purchase cost is not claimed again.', category: a.category, itemId: a.itemId,
+        detail: { costCents: a.costCents, workPct: a.workPct },
+      });
+      return 0;
+    }
+    const amount = diminishingValue(opening, life, 365, a.workPct);
+    cx.setStatus('decline_in_value', 'computed');
+    cx.lines.computed({
+      id, section: 'deductions', label: `${a.label} (decline in value)`, amountCents: amount, ruleId: `${cx.rules.fy}.declineInValue`,
+      inputs: [...a.inputs, a.effectiveLifeQ, a.dateQ, a.openingValueQ!], formula: `opening value ${opening / 100} x (200% / ${life} yrs) x 365/365 days x ${a.workPct}% work use (first used ${date})`,
+      category: a.category, itemId: a.itemId,
+      detail: { costCents: a.costCents, openingValueCents: opening, effectiveLifeYears: life, daysHeld: 365, workPct: a.workPct, method: 'diminishing_value', closingValueCents: opening - diminishingValue(opening, life, 365, 100) },
+    });
+    return amount;
+  }
   const amount = diminishingValue(a.costCents, life, days, a.workPct);
   cx.setStatus('decline_in_value', 'computed');
   cx.lines.computed({
@@ -96,7 +125,7 @@ export function declineInValueLine(cx: CalcContext, a: DeclineArgs): number {
     formula: `${a.costCents / 100} x (200% / ${life} yrs) x ${days}/365 days x ${a.workPct}% work use${dateNote}`,
     category: a.category,
     itemId: a.itemId,
-    detail: { costCents: a.costCents, effectiveLifeYears: life, daysHeld: days, workPct: a.workPct, method: 'diminishing_value' },
+    detail: { costCents: a.costCents, effectiveLifeYears: life, daysHeld: days, workPct: a.workPct, method: 'diminishing_value', closingValueCents: a.costCents - diminishingValue(a.costCents, life, days, 100) },
   });
   return amount;
 }

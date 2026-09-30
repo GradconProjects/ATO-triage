@@ -2,6 +2,7 @@ import { FOREIGN_TYPES, GOV_TYPES, GROUPS, Q } from '../../questions/ids';
 import type { Question } from '../../engine/types';
 import { pct } from '../money';
 import type { CalcContext } from '../context';
+import type { DeferredLossRow } from '../types';
 import { lineId } from '../explain';
 import { resolveTreatment } from '../treatment';
 import { residencyKind } from './tax-scale';
@@ -17,6 +18,7 @@ export interface IncomeResult {
   rfbCents: number;
   rescCents: number;
   salaryCents: number;
+  deferredLosses: DeferredLossRow[];
 }
 
 type IncomeTreatment = 'I' | 'N' | 'R';
@@ -52,10 +54,11 @@ export const SPECIAL_INCOME_IDS = new Set<string>([
   Q.inv.essDiscount,
   Q.rent.income, Q.rent.expInterest, Q.rent.expCouncil, Q.rent.expWater, Q.rent.expInsurance, Q.rent.expAgent, Q.rent.expRepairs,
   Q.rent.expCapitalWorks, Q.rent.expDepreciation, Q.rent.expOther,
-  Q.cgt.proceeds, Q.cgt.costBase, Q.cgt.priorLosses, Q.cgt.cryptoIncome,
+  Q.cgt.proceeds, Q.cgt.costBase, Q.cgt.priorLosses, Q.cgt.cryptoIncome, Q.cgt.derivativesNet,
   ...FOREIGN_TYPES.map((t) => Q.fgn.amount(t)),
   Q.fgn.taxPaid,
-  Q.bus.income, Q.bus.expenses, Q.bus.ptShare, Q.bus.ptCredits,
+  Q.bus.income, Q.bus.expenses, Q.bus.ptShare, Q.bus.ptCredits, Q.bus.priorDeferred,
+  Q.bus.activityIncome, Q.bus.activityExpSubscriptions, Q.bus.activityExpPlatform, Q.bus.activityExpOther, Q.bus.activityPriorDeferred,
   Q.chef.tipsAmount,
   Q.fam.spouseTaxableIncome, Q.fam.spouseRfb, Q.fam.spouseRsc,
   Q.core.assessedResult,
@@ -95,7 +98,7 @@ function keyOf(id: string, itemId: string | null): string {
 /** Step 1: assessable income. */
 export function computeIncome(cx: CalcContext): IncomeResult {
   const fy = cx.rules.fy;
-  const res: IncomeResult = { assessableCents: 0, lumpSumECents: 0, foreignIncomeCents: 0, frankingCreditsCents: 0, rfbCents: 0, rescCents: 0, salaryCents: 0 };
+  const res: IncomeResult = { assessableCents: 0, lumpSumECents: 0, foreignIncomeCents: 0, frankingCreditsCents: 0, rfbCents: 0, rescCents: 0, salaryCents: 0, deferredLosses: [] };
   let touched = false;
   const add = (it: IncomeItem) => {
     touched = true;
@@ -236,25 +239,83 @@ export function computeIncome(cx: CalcContext): IncomeResult {
 
   simple(Q.inv.essDiscount, null, 'Employee share scheme discount', 'ess', 'R', `${fy}.income.ess`, 'ESS discounts depend on the scheme type (taxed-upfront, deferral, start-up); needs review.', [Q.inv.ess]);
 
-  // Business / sole trader.
+  // Business / sole trader (the main business) and each separate business activity.
+  // One authoritative record per activity: income less its own expenses, entered once.
+  const LOSS_TESTS = ['income_20k', 'profit_3_of_5', 'property_500k', 'assets_100k'];
+  const activity = (a: {
+    activityId: string; itemId: string | null; name: string; income: number; expenses: number; expenseParts: string;
+    opening: number; tests: string[] | undefined; inputs: string[]; psiRisk: boolean; incomeKey: string;
+  }) => {
+    const net = a.income - a.expenses;
+    const idPrefix = a.itemId ? 'income.business.activity' : 'income.business';
+    const row: DeferredLossRow = { activityId: a.activityId, activity: a.name, openingCents: a.opening, currentLossCents: 0, usedCents: 0, closingCents: a.opening, status: 'none' };
+    if (net >= 0) {
+      // Earlier deferred losses of this activity can only be used against this activity's profit.
+      const used = Math.min(a.opening, net);
+      row.usedCents = used;
+      row.closingCents = a.opening - used;
+      const cents = net - used;
+      const formula = `income ${a.income / 100} - expenses ${a.expenses / 100}${a.expenseParts}${used ? ` - earlier deferred loss applied ${used / 100}` : ''}`;
+      if (a.psiRisk) add({ idPrefix, itemId: a.itemId, label: `${a.name}: net income (PSI rules may apply)`, cents, category: 'business', inputs: a.inputs, formula, ruleId: `${fy}.income.business`, treatment: 'R', key: a.incomeKey, note: 'Personal services income rules may limit deductions; needs review.' });
+      else add({ idPrefix, itemId: a.itemId, label: `${a.name}: net income`, cents, category: 'business', inputs: a.inputs, formula, ruleId: `${fy}.income.business`, treatment: 'I', key: a.incomeKey });
+    } else {
+      const loss = -net;
+      row.currentLossCents = loss;
+      const testMet = (a.tests ?? []).some((t) => LOSS_TESTS.includes(t));
+      const formula = `income ${a.income / 100} - expenses ${a.expenses / 100}${a.expenseParts} = loss ${loss / 100}`;
+      if (testMet) {
+        row.status = 'review';
+        add({ idPrefix, itemId: a.itemId, label: `${a.name}: net loss`, cents: net, category: 'business', inputs: a.inputs, formula, ruleId: `${fy}.income.business`, treatment: 'R', key: a.incomeKey, note: 'A non-commercial loss test was ticked; confirm it before the loss can offset other income.' });
+      } else {
+        row.status = 'deferred';
+        row.closingCents = a.opening + loss;
+        touched = true;
+        cx.lines.excluded({
+          id: lineId(idPrefix, a.itemId), section: 'income', label: `${a.name}: deferred non-commercial loss`, amountCents: net, ruleId: `${fy}.income.business.ncl`,
+          inputs: a.inputs, formula, category: 'business', itemId: a.itemId,
+          note: `No non-commercial loss test is met${a.tests === undefined ? ' (not yet answered)' : ''}, so the loss does not reduce other income this year. It is carried forward (${row.closingCents / 100}) for later profit from this activity.`,
+        });
+        if (a.tests === undefined || a.tests.includes('not_sure')) cx.review('business', `${a.name}: confirm whether a non-commercial loss test is met this year; until then the ${loss / 100} loss is deferred.`, a.inputs, loss);
+      }
+    }
+    res.deferredLosses.push(row);
+  };
   {
     const income = cx.visible.has(Q.bus.income) ? cx.a.cents(Q.bus.income) : undefined;
     if (income !== undefined) {
       const expenses = (cx.visible.has(Q.bus.expenses) ? cx.a.cents(Q.bus.expenses) : undefined) ?? 0;
-      const net = income - expenses;
       const psi80 = cx.a.string(Q.bus.psi80);
       const psiNotSure = cx.a.isNotSure(Q.bus.psi80);
       const results = cx.a.string(Q.bus.psiResults);
-      const inputs = [Q.bus.income, Q.bus.expenses, Q.bus.psi80, Q.bus.psiResults];
-      const psiRisk = (psi80 === 'yes' || psiNotSure) && results !== 'yes';
-      if (net < 0) {
-        add({ idPrefix: 'income.business', itemId: null, label: 'Business net loss', cents: net, category: 'business', inputs, formula: `${income / 100} - ${expenses / 100} = ${net / 100}`, ruleId: `${fy}.income.business`, treatment: 'R', key: Q.bus.income, note: 'Business losses are subject to the non-commercial loss rules; always manual review.' });
-      } else if (psiRisk) {
-        add({ idPrefix: 'income.business', itemId: null, label: 'Business net income (PSI rules may apply)', cents: net, category: 'business', inputs, formula: `${income / 100} - ${expenses / 100} = ${net / 100}`, ruleId: `${fy}.income.business`, treatment: 'R', key: Q.bus.income, note: 'Personal services income rules may limit deductions; needs review.' });
-      } else {
-        add({ idPrefix: 'income.business', itemId: null, label: 'Business net income', cents: net, category: 'business', inputs, formula: `income ${income / 100} - expenses ${expenses / 100}`, ruleId: `${fy}.income.business`, treatment: 'I', key: Q.bus.income });
-      }
+      const opening = (cx.visible.has(Q.bus.priorDeferred) ? cx.a.cents(Q.bus.priorDeferred) : undefined) ?? 0;
+      const tests = cx.visible.has(Q.bus.lossTests) ? cx.a.list(Q.bus.lossTests) : undefined;
+      activity({
+        activityId: 'main', itemId: null, name: cx.a.string(Q.bus.name)?.trim() || 'Business', income, expenses, expenseParts: '', opening, tests,
+        inputs: [Q.bus.income, Q.bus.expenses, Q.bus.psi80, Q.bus.psiResults, ...(opening ? [Q.bus.priorDeferred] : []), ...(tests ? [Q.bus.lossTests] : [])],
+        psiRisk: (psi80 === 'yes' || psiNotSure) && results !== 'yes', incomeKey: Q.bus.income,
+      });
     }
+  }
+  for (const it of cx.items(GROUPS.businessActivity)) {
+    const v = (id: string) => (cx.visible.has(keyOf(id, it.id)) ? cx.a.cents(id, it.id) : undefined);
+    const income = v(Q.bus.activityIncome);
+    const parts: [string, number | undefined][] = [
+      ['subscriptions', v(Q.bus.activityExpSubscriptions)],
+      ['platform fees', v(Q.bus.activityExpPlatform)],
+      ['other', v(Q.bus.activityExpOther)],
+    ];
+    const entered = parts.filter((p): p is [string, number] => p[1] !== undefined);
+    if (income === undefined && entered.length === 0) continue;
+    const expenses = entered.reduce((acc, [, c]) => acc + c, 0);
+    const opening = v(Q.bus.activityPriorDeferred) ?? 0;
+    const testsKey = keyOf(Q.bus.activityLossTests, it.id);
+    const tests = cx.visible.has(testsKey) ? cx.a.list(Q.bus.activityLossTests, it.id) : undefined;
+    activity({
+      activityId: it.id, itemId: it.id, name: cx.a.string(Q.bus.activityName, it.id)?.trim() || 'Business activity', income: income ?? 0, expenses,
+      expenseParts: entered.length ? ` (${entered.map(([l, c]) => `${l} ${c / 100}`).join(' + ')})` : '', opening, tests,
+      inputs: [Q.bus.activityIncome, ...entered.map(([l]) => (l === 'subscriptions' ? Q.bus.activityExpSubscriptions : l === 'platform fees' ? Q.bus.activityExpPlatform : Q.bus.activityExpOther)), ...(opening ? [Q.bus.activityPriorDeferred] : []), ...(tests ? [Q.bus.activityLossTests] : [])],
+      psiRisk: false, incomeKey: keyOf(Q.bus.activityIncome, it.id),
+    });
   }
   for (const { itemId, cents } of cx.centsInstances(Q.bus.ptShare)) {
     const name = cx.a.string(Q.bus.ptName, itemId);
@@ -267,6 +328,12 @@ export function computeIncome(cx: CalcContext): IncomeResult {
   }
 
   simple(Q.cgt.cryptoIncome, null, 'Crypto income (staking, airdrops)', 'crypto_income', 'I', `${fy}.income.crypto`);
+  // Derivatives traded as an investment: always review (capital or revenue depends on the facts).
+  // Derivatives traded as a business are entered once as a business activity instead.
+  {
+    const cents = cx.visible.has(Q.cgt.derivativesNet) ? cx.a.cents(Q.cgt.derivativesNet) : undefined;
+    if (cents !== undefined) add({ idPrefix: 'income.derivatives', itemId: null, label: cents < 0 ? 'Futures and derivatives net loss (classification needed)' : 'Futures and derivatives net gain (classification needed)', cents, category: 'derivatives', inputs: [Q.cgt.derivativesAny, Q.cgt.derivativesNature, Q.cgt.derivativesNet], formula: `net result ${cents / 100}`, ruleId: `${fy}.income.derivatives`, treatment: 'R', key: Q.cgt.derivativesNet, note: 'Whether derivative results are capital or revenue depends on how the trading was carried on. Not added to income or used as a loss until reviewed.' });
+  }
 
   // Foreign income: bank meta first, else residency-based default.
   {

@@ -1,4 +1,4 @@
-import type { AnswerSource, AnswerState } from '@/src/engine/types';
+import type { AnswerSource, AnswerState, SourceRef } from '@/src/engine/types';
 
 export type Relationship = 'self' | 'spouse' | 'family' | 'client' | 'other';
 export type CasePurpose = 'pre_lodgment' | 'assessment_review' | 'amendment' | 'planning';
@@ -57,6 +57,7 @@ export interface RepeaterItemRow {
   created_at: string;
 }
 
+
 export interface AnswerRow {
   id: string;
   case_id: string;
@@ -68,6 +69,7 @@ export interface AnswerRow {
   source: AnswerSource;
   version: number;
   created_at: string;
+  source_ref?: SourceRef | null;
 }
 
 export interface EstimateRow {

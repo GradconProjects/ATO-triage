@@ -1,4 +1,5 @@
 import type { AnswerView } from '../../engine/answers';
+import type { SourceRef } from '../../engine/types';
 import { GROUPS, Q } from '../../questions/ids';
 import type { ExtractedStatement } from './extract';
 
@@ -11,6 +12,7 @@ export interface PrefillWrite {
   value: unknown;
   state: 'answered';
   source: 'prefill_confirmed';
+  sourceRef?: SourceRef;
 }
 
 const toCents = (dollars: number) => Math.round(dollars * 100);

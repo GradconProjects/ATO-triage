@@ -129,7 +129,13 @@ export function visibleKeySet(visible: VisibleQuestion[]): Set<string> {
   return new Set(visible.map((v) => v.key));
 }
 
-const HIDEABLE_STATES: readonly AnswerState[] = ['answered', 'not_sure', 'imported', 'skipped'] as const;
+/**
+ * `imported` is deliberately not hideable: a prefilled suggestion behind a gate question the user
+ * has not confirmed yet (e.g. last year's rental address behind "Did you own a rental?") would
+ * otherwise be discarded on load. Imported values never count and never drive visibility, and the
+ * intelligence layer only sees visible answers, so a waiting suggestion cannot affect anything.
+ */
+const HIDEABLE_STATES: readonly AnswerState[] = ['answered', 'not_sure', 'skipped'] as const;
 
 /**
  * Rows to append so hidden-but-valued answers become `not_applicable_by_rule`.

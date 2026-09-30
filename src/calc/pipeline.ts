@@ -56,6 +56,7 @@ export function calculate(input: CalcInput): Estimate {
   const taxable = Math.max(0, rawTaxable);
   const carriedForwardLoss = rawTaxable < 0 ? -rawTaxable : 0;
   cx.lines.computed({ id: 'taxable_income', section: 'taxable_income', label: 'Taxable income', amountCents: taxable, ruleId: `${cx.rules.fy}.taxableIncome`, inputs: [], formula: `assessable income ${assessable / 100} - deductions ${deductions / 100}, rounded down to the dollar${carriedForwardLoss ? ` (loss ${carriedForwardLoss / 100} carried forward)` : ''}` });
+  for (const d of income.deferredLosses) if (d.closingCents > 0) cx.assume(`${d.activity}: deferred non-commercial loss of ${d.closingCents / 100} carried forward (kept separate from capital losses).`);
   if (carriedForwardLoss > 0) cx.review('taxable_income', `Deductions exceed income by ${carriedForwardLoss / 100}; the loss is carried forward (non-commercial loss rules may apply).`, [], carriedForwardLoss);
 
   // 4. Gross tax.
@@ -117,5 +118,6 @@ export function calculate(input: CalcInput): Estimate {
     assumptions: [...cx.assumptions],
     uncertainInputs: [...cx.uncertain],
     moduleStatus: { ...cx.moduleStatus },
+    deferredLosses: income.deferredLosses,
   };
 }

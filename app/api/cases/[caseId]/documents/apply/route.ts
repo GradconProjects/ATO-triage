@@ -7,13 +7,22 @@ import { loadCaseState, serializeCaseState } from '@/src/lib/case-state';
 import { QUESTIONS_BY_ID } from '@/src/questions';
 import { GROUPS } from '@/src/questions/ids';
 import { validateAnswer } from '@/src/engine';
-import type { FY } from '@/src/engine/types';
+import type { FY, SourceRef } from '@/src/engine/types';
 import { ExtractedStatement } from '@/src/lib/documents/extract';
-import { allowanceScreenWrites, allowanceWrites, employerWrites, matchEmployerItem, type PrefillWrite } from '@/src/lib/documents/prefill';
+import { allowanceScreenWrites, allowanceWrites, type PrefillWrite } from '@/src/lib/documents/prefill';
+import { planStatementImport, planWrites } from '@/src/lib/documents/plan';
 
-const bodySchema = z.object({ employers: ExtractedStatement.shape.employers.max(20) });
+const bodySchema = z.object({
+  employers: ExtractedStatement.shape.employers.max(20),
+  documentId: z.string().uuid().nullable().optional(),
+  dryRun: z.boolean().optional(),
+});
 
-/** Write the reviewed statement figures into the interview, as prefilled answers the user confirmed. */
+/**
+ * Write reviewed statement figures into the interview (or, with dryRun, only return the plan).
+ * The plan decides per employer and allowance: add, update, link this document to a matching
+ * record, or hold back a possible duplicate. Importing the same statement again adds nothing.
+ */
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = await params;
   const supabase = await createClient();
@@ -32,29 +41,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const state = await loadCaseState(supabase, user.id, caseId);
   if (!state) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const plan = planStatementImport(state.view, parsed.data.employers);
+  if (parsed.data.dryRun) return NextResponse.json({ ok: true, plan });
+
+  let sourceRef: SourceRef | undefined;
+  if (parsed.data.documentId) {
+    const doc = await supabase.from('documents').select('id, original_name').eq('id', parsed.data.documentId).eq('case_id', caseId).maybeSingle();
+    if (doc.data) sourceRef = { kind: 'document', documentId: doc.data.id, ...(doc.data.original_name ? { fileName: doc.data.original_name } : {}) };
+  }
+
   let employerCount = state.view.items(GROUPS.employer).length;
   let allowanceCount = state.view.items(GROUPS.allowance).length;
-  const taken = new Set<string>();
   const writes: PrefillWrite[] = [];
-  for (const e of parsed.data.employers) {
-    let itemId = matchEmployerItem(state.view, e.name, taken);
-    if (!itemId) itemId = (await createItem(supabase, caseRow.owner_id, caseId, GROUPS.employer, employerCount++)).id;
-    taken.add(itemId);
-    writes.push(...employerWrites(e, itemId));
-    for (const a of e.allowances) {
-      if (!(a.amount > 0)) continue;
+  let addedAllowances = 0;
+  for (const p of plan) {
+    const e = parsed.data.employers[p.index]!;
+    const itemId = p.targetItemId ?? (await createItem(supabase, caseRow.owner_id, caseId, GROUPS.employer, employerCount++)).id;
+    writes.push(...planWrites(p, e, itemId));
+    for (const ap of p.allowances) {
+      if (ap.action !== 'add' || !(ap.amountCents > 0)) continue;
+      const a = e.allowances[ap.index]!;
       const item = await createItem(supabase, caseRow.owner_id, caseId, GROUPS.allowance, allowanceCount++);
       writes.push(...allowanceWrites(a, item.id, e.name));
+      addedAllowances++;
     }
   }
-  if (parsed.data.employers.some((e) => e.allowances.some((a) => a.amount > 0))) writes.push(...allowanceScreenWrites());
+  if (addedAllowances) writes.push(...allowanceScreenWrites());
 
   const fy = caseRow.financial_year as FY;
-  const valid = writes.filter((wr) => {
-    const q = QUESTIONS_BY_ID.get(wr.questionId);
-    return q !== undefined && validateAnswer(q, wr.value, { fy, profileOccupations: [] }).errors.length === 0;
-  });
+  const valid = writes
+    .filter((wr) => {
+      const q = QUESTIONS_BY_ID.get(wr.questionId);
+      return q !== undefined && validateAnswer(q, wr.value, { fy, profileOccupations: [] }).errors.length === 0;
+    })
+    .map((wr) => (sourceRef ? { ...wr, sourceRef } : wr));
   await appendAnswers(supabase, caseRow.owner_id, caseId, valid);
   const next = await loadCaseState(supabase, user.id, caseId);
-  return NextResponse.json({ ok: true, written: valid.length, state: next ? serializeCaseState(next) : null });
+  return NextResponse.json({ ok: true, plan, written: valid.length, state: next ? serializeCaseState(next) : null });
 }

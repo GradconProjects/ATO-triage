@@ -10,7 +10,7 @@
  * Never includes: birth year, TFN, bank details, email addresses.
  */
 import type { Estimate } from '@/src/calc/types';
-import type { AnswerRecord, AnswerSource, AnswerState, ModuleId, Question } from '@/src/engine/types';
+import type { AnswerRecord, AnswerSource, AnswerState, ModuleId, Question, SourceRef } from '@/src/engine/types';
 import { MODULE_LABELS, MODULE_ORDER } from '@/src/engine/types';
 import { answerKey } from '@/src/engine/answers';
 import type { IntelligenceResult } from '@/src/intelligence/types';
@@ -44,6 +44,10 @@ export interface SnapshotAnswer {
   /** True when the question was visible in the interview at snapshot time. */
   visible: boolean;
   feeds?: string[];
+  /** Where a prefilled or imported value came from (optional: older snapshots have none). */
+  sourceRef?: SourceRef;
+  /** Answer version; above 1 means it was changed after first being entered (amendment history). */
+  answerVersion?: number;
 }
 
 export interface ReportSnapshot {
@@ -115,6 +119,8 @@ export function buildSnapshot(state: CaseState, estimate: Estimate, intelligence
       source: rec.source,
       visible: state.visibleKeys.has(answerKey(rec.questionId, rec.repeaterItemId)),
     };
+    if (rec.sourceRef) a.sourceRef = rec.sourceRef;
+    if (rec.version > 1) a.answerVersion = rec.version;
     if (item?.label) a.itemLabel = item.label;
     else if (item) a.itemLabel = `${item.groupId.replace(/_/g, ' ')} ${item.sortOrder + 1}`;
     if (q?.feeds?.length) a.feeds = [...q.feeds];

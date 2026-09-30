@@ -56,8 +56,11 @@ describe('income', () => {
     const ok = run([a(Q.bus.income, c(50000)), a(Q.bus.expenses, c(10000)), a(Q.bus.psi80, 'yes'), a(Q.bus.psiResults, 'yes')]);
     expect(ok.totals.assessableIncomeCents).toBe(c(40000));
     const loss = run([a(Q.bus.income, c(5000)), a(Q.bus.expenses, c(10000)), a(Q.bus.psi80, 'no')]);
-    expect(lineById(loss, 'income.business').status).toBe('manual_review');
+    // Loss with the non-commercial loss tests not answered: deferred (never deducted) and flagged to confirm.
+    expect(lineById(loss, 'income.business').status).toBe('excluded');
     expect(loss.totals.assessableIncomeCents).toBe(0);
+    expect(loss.manualReview.some((r) => r.module === 'business')).toBe(true);
+    expect(loss.deferredLosses?.[0]).toMatchObject({ activityId: 'main', currentLossCents: c(5000), closingCents: c(5000), status: 'deferred' });
     const unsure = run([a(Q.bus.income, c(50000)), a(Q.bus.expenses, c(10000)), notSure(Q.bus.psi80)]);
     expect(lineById(unsure, 'income.business').status).toBe('manual_review');
   });

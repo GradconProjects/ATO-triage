@@ -220,6 +220,11 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     validation: [{ kind: 'min', value: 1 }, { kind: 'max', value: 40 }],
     help: 'Items costing $300 or more are claimed over their effective life. The ATO publishes typical lives; for example power tools are often 3 to 5 years.',
   }),
+  money(Q.ded.toolOpeningValue, D, 'If first used before this year: what was its value at the start of this year? (optional)', {
+    repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: all(TOOL_ON, gt(Q.ded.toolCost, 29999)), required: false, feeds: ['deductions'],
+    validation: [{ kind: 'min', value: 0 }],
+    help: 'The opening adjustable value: cost less the decline in value worked out in earlier years (last year\'s closing value). Only for an item first used before this year; the cost is not written off again from the start.',
+  }),
 
   // =========================================================================
   // Home office (special module: fixed rate x hours, or actual costs; dsw.home_office routes here)

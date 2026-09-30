@@ -222,7 +222,7 @@ export function computeDeductions(cx: CalcContext): DeductionsResult {
       const isCapital = r.treatment === 'C' || (meta.capitalThreshold === true && cents >= threshold);
       let amount: number;
       if (isCapital) {
-        amount = declineInValueLine(cx, { idPrefix: `ded.${id}`, itemId, label, category: meta.category, costCents: paid.netCents, workPct: wp, inputs, effectiveLifeQ: `${base}.effective_life`, dateQ: `${base}.date`, key });
+        amount = declineInValueLine(cx, { idPrefix: `ded.${id}`, itemId, label, category: meta.category, costCents: paid.netCents, workPct: wp, inputs, effectiveLifeQ: `${base}.effective_life`, dateQ: `${base}.date`, openingValueQ: `${base}.opening_value`, key });
       } else {
         amount = pct(paid.netCents, wp);
         cx.lines.computed({ id: lid, section: 'deductions', label, amountCents: amount, ruleId: `${fy}.deduction.${meta.category}`, inputs, formula: `${paid.reimbursedCents ? `(${cents / 100} - ${paid.reimbursedCents / 100} reimbursed)` : `${cents / 100}`} x ${wp}%${meta.capitalThreshold ? ` (under $${rules.instantDeductionThreshold}: immediate)` : ''}${r.formula && r.inputs.length ? `; ${r.formula}` : ''}`, category: meta.category, itemId, detail, ...(paid.note ? { note: paid.note } : {}) });

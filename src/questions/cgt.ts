@@ -1,7 +1,7 @@
 /** M11 capital gains and crypto. Universal. */
 import type { Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
-import { all, eq, flatten, includes, includesAny, money, opt, percent, repeater, screening, single, text, yes, yesNoUnsure, date } from './shared';
+import { all, any, eq, flatten, gt, includes, includesAny, money, multi, not, opt, percent, repeater, screening, single, text, yes, yesNoUnsure, date } from './shared';
 
 const C = GROUPS.cgtEvent;
 /** Ticks that create a CGT event of your own (a trust distribution is captured in Investments). */
@@ -55,9 +55,42 @@ export const CGT_QUESTIONS: Question[] = flatten(
     repeaterGroup: C, showIf: all(HAS_EVENT, eq(Q.cgt.assetType, 'property')), feeds: ['cgt'],
     help: 'The main residence exemption can remove the gain, but it has many conditions. Anything other than a clear "yes" is reviewed.',
   }),
+  yesNoUnsure(Q.cgt.priorLossesAny, 'cgt', 'Do you have net capital losses carried forward from earlier years?', {
+    showIf: not(HAS_EVENT), required: false, feeds: ['cgt'],
+    help: 'Unused capital losses stay available until you have a capital gain, even in years with no sales. We keep the balance so it is not lost.',
+  }),
   money(Q.cgt.priorLosses, 'cgt', 'Do you have net capital losses carried forward from earlier years?', {
-    showIf: HAS_EVENT, feeds: ['cgt'], validation: [{ kind: 'min', value: 0 }],
+    showIf: any(HAS_EVENT, yes(Q.cgt.priorLossesAny)), feeds: ['cgt'], validation: [{ kind: 'min', value: 0 }],
     help: 'Shown on last year\'s notice of assessment or return. Losses are used before the discount. Enter 0 if none.',
+  }),
+  multi(Q.cgt.priorLossesOrigin, 'cgt', 'Where did those carried-forward capital losses come from?', [
+    opt('spot_sales', 'Selling shares or crypto', 'Ordinary sales or swaps of shares, ETFs or coins.'),
+    opt('derivatives', 'Futures, perpetuals, CFDs or other derivatives', 'Losses on leveraged or derivative trading.'),
+    opt('property', 'Selling property'),
+    opt('other', 'Something else'),
+  ], {
+    showIf: gt(Q.cgt.priorLosses, 0), required: false, feeds: ['cgt'],
+    help: 'We keep the losses exactly as they were classified in earlier years. Knowing where they came from lets us flag a classification that may need checking.',
+  }),
+  text(Q.cgt.priorLossesCorrection, 'cgt', 'If these losses were reclassified by a tax agent or the ATO, describe the correction (optional)', {
+    showIf: gt(Q.cgt.priorLosses, 0), required: false, validation: [{ kind: 'maxLength', value: 500 }],
+    help: 'Include the evidence, for example "2024-25 amended by agent on 3 March: $4,000 reclassified as a business loss (amendment notice)". The balance above should already reflect any correction.',
+  }),
+  yesNoUnsure(Q.cgt.derivativesAny, 'cgt', 'Did you trade futures, perpetuals, CFDs, options or other derivatives this year (including crypto futures)?', {
+    required: false, feeds: ['cgt'],
+    help: 'Derivative trading is not treated like buying and selling coins or shares. Whether it is investing or a business decides where the result belongs.',
+  }),
+  single(Q.cgt.derivativesNature, 'cgt', 'How would you describe that derivatives trading?', [
+    opt('investment', 'Occasional trading of my own money, not run as a business', 'We record the result for review; how it is taxed depends on the facts.'),
+    opt('business', 'Regular, organised trading run like a business', 'Enter it once as a business activity (Business section), with its own expenses. It is not counted here.'),
+  ], { showIf: yes(Q.cgt.derivativesAny), feeds: ['cgt'] }),
+  money(Q.cgt.derivativesNet, 'cgt', 'What was your net result from derivatives this year? (a loss as a negative amount)', {
+    showIf: eq(Q.cgt.derivativesNature, 'investment'), allowNegative: true, calc: { cgt: 'derivatives' }, feeds: ['cgt'],
+    help: 'From the exchange\'s yearly report: realised profit less losses and fees. It is sent to review, never added automatically.',
+  }),
+  text(Q.cgt.platforms, 'cgt', 'Which exchanges or platforms did you use? (optional)', {
+    showIf: any(includes(Q.cgt.events, 'crypto'), yes(Q.cgt.derivativesAny)), required: false, validation: [{ kind: 'maxLength', value: 200 }],
+    help: 'For example "Binance, Bybit, CoinSpot". Helps match exchange reports and avoids entering the same trades twice.',
   }),
   single(Q.cgt.cryptoMethod, 'cgt', 'How did you work out the cost of each crypto unit you sold?', [
     opt('specific_id', 'I identified the specific units sold', 'You can trace which purchase each sale came from.'),

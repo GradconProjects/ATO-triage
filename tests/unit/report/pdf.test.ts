@@ -224,6 +224,27 @@ describe('ReportDocument', () => {
     expect(buf.byteLength).toBeGreaterThan(2_000);
   }, 60_000);
 
+  it('shows capital and deferred business losses separately, from the same estimate the calculation produced', async () => {
+    const s = snapshotFor(false);
+    const withLosses: ReportSnapshot = {
+      ...s,
+      estimate: {
+        ...s.estimate,
+        totals: { ...s.estimate.totals, capitalLossCarriedForwardCents: 1_100_000 },
+        deferredLosses: [{ activityId: 'a1', activity: 'Trading signals', openingCents: 0, currentLossCents: 750_000, usedCents: 0, closingCents: 750_000, status: 'deferred' }],
+      },
+    };
+    const buf = await renderToBuffer(reportElement(withLosses));
+    expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  }, 60_000);
+
+  it('names the source of prefilled answers and counts loss amendments', async () => {
+    const { sourceText } = await import('@/src/report/sections/answers');
+    const base = snapshotFor(false).answers[0]!;
+    expect(sourceText({ ...base, source: 'document', sourceRef: { kind: 'prior_year', fromCaseId: 'c', fy: '2024-25', category: 'opening_balance' } })).toBe('Imported from 2024-25 case (opening balance)');
+    expect(sourceText({ ...base, questionId: 'cgt.prior_losses', source: 'user', answerVersion: 3 })).toBe('Entered; changed 2x');
+  });
+
   it('renders a long multi-page report (fixed footer must not grow page by page)', async () => {
     const s = snapshotFor(false);
     const many = Array.from({ length: 40 }, (_, n) => s.answers.map((a) => ({ ...a, questionId: `${a.questionId}.${n}` }))).flat();

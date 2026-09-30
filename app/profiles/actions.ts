@@ -2,13 +2,11 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requirePermission, type Access } from '@/src/lib/access';
-import { appendAnswers, createCase, createItem, createProfile, deleteCase, deleteProfile, getCase, listAnswers, listItems, updateProfile } from '@/src/lib/db/repo';
+import { requirePermission } from '@/src/lib/access';
+import { appendAnswers, createCase, createProfile, deleteCase, deleteProfile, updateProfile } from '@/src/lib/db/repo';
 import { findOccupation } from '@/src/occupations/registry';
 import { FINANCIAL_YEARS, type FY } from '@/src/engine/types';
 import type { CasePurpose, Relationship } from '@/src/lib/db/types';
-import { AnswerView } from '@/src/engine/answers';
-import { QUESTION_BANK } from '@/src/questions';
 import { Q } from '@/src/questions/ids';
 
 const RELATIONSHIPS: Relationship[] = ['self', 'spouse', 'family', 'client', 'other'];
@@ -81,42 +79,9 @@ export async function createCaseAction(profileId: string, formData: FormData) {
     { questionId: Q.core.fy, repeaterItemId: null, value: financial_year, state: 'answered', source: 'user' },
     { questionId: Q.core.purpose, repeaterItemId: null, value: purpose, state: 'answered', source: 'user' },
   ]);
-  if (copyFrom) await copyStableFacts(supabase, ownerId, copyFrom, row.id);
   revalidatePath(`/profiles/${profileId}`);
-  redirect(`/cases/${row.id}/interview/core`);
-}
-
-/**
- * "Start new year" copy: stable facts (occupations per employer, rental property details,
- * residency) arrive as `imported` and must be confirmed by the user before they count.
- */
-const COPY_GROUPS = new Set(['employer', 'rental_property']);
-const COPY_QUESTION_PREFIXES = ['emp.employer.name', 'emp.employer.abn', 'emp.employer.occupation', 'emp.employer.other_tags', 'rent.property.address', 'rent.property.ownership_pct', 'res.status', 'fam.spouse', 'phi.cover', 'loan.types', 'rent.any'];
-
-async function copyStableFacts(supabase: Access['supabase'], ownerId: string, fromCaseId: string, toCaseId: string) {
-  const source = await getCase(supabase, fromCaseId);
-  if (!source) return;
-  const [answers, items] = await Promise.all([listAnswers(supabase, fromCaseId), listItems(supabase, fromCaseId)]);
-  const view = new AnswerView(answers, items);
-  const known = new Set(QUESTION_BANK.map((q) => q.id));
-  const itemMap = new Map<string, string>();
-  for (const it of items) {
-    if (!COPY_GROUPS.has(it.groupId)) continue;
-    const created = await createItem(supabase, ownerId, toCaseId, it.groupId, it.sortOrder);
-    itemMap.set(it.id, created.id);
-  }
-  const toCopy = view
-    .records()
-    .filter((r) => r.state === 'answered' && known.has(r.questionId) && COPY_QUESTION_PREFIXES.some((p) => r.questionId === p))
-    .filter((r) => !r.repeaterItemId || itemMap.has(r.repeaterItemId))
-    .map((r) => ({
-      questionId: r.questionId,
-      repeaterItemId: r.repeaterItemId ? (itemMap.get(r.repeaterItemId) ?? null) : null,
-      value: r.value,
-      state: 'imported' as const,
-      source: 'document' as const,
-    }));
-  await appendAnswers(supabase, ownerId, toCaseId, toCopy);
+  // Copying from an earlier year goes through the reviewable prefill preview (nothing is copied blind).
+  redirect(copyFrom ? `/cases/${row.id}/prefill?from=${encodeURIComponent(copyFrom)}` : `/cases/${row.id}/interview/core`);
 }
 
 export async function deleteCaseAction(profileId: string, caseId: string) {

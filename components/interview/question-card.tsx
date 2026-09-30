@@ -83,7 +83,13 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
           <p>
             <strong>Imported value:</strong> {displayValue(q, record?.value)}
           </p>
-          <p className="mt-1 text-xs text-muted">Copied from an earlier year or a document. Confirm it or enter a new answer. It does not count until you confirm.</p>
+          <p className="mt-1 text-xs text-muted">
+            {record?.sourceRef?.kind === 'prior_year'
+              ? `From your ${record.sourceRef.fy} case (${record.sourceRef.category === 'opening_balance' ? 'opening balance' : record.sourceRef.category === 'annual_fact' ? 'last year\'s answer: check it still applies' : 'reusable detail'}).`
+              : 'Copied from an earlier year or a document.'}{' '}
+            Confirm it or enter a new answer. It does not count until you confirm.
+          </p>
+          {record?.sourceRef?.kind === 'prior_year' && record.sourceRef.note ? <p className="mt-1 text-xs italic text-slate-500">{record.sourceRef.note}</p> : null}
           <button
             type="button"
             className="mt-2 min-h-9 rounded-md bg-primary px-3 text-sm text-white"

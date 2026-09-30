@@ -3,6 +3,7 @@ import { money, rangePhrase, resultPhrase } from '../format';
 import { openReviewCount, type ReportSnapshot } from '../snapshot';
 import { styles } from '../styles';
 import { KeyValue, SectionTitle } from './chrome';
+import { Table } from './table';
 
 /** Section 2: summary box. */
 export function SummarySection({ snapshot }: { snapshot: ReportSnapshot }) {
@@ -33,7 +34,43 @@ export function SummarySection({ snapshot }: { snapshot: ReportSnapshot }) {
         ) : null}
       </View>
       {t.carriedForwardLossCents > 0 ? <Text style={styles.small}>Income loss carried forward: {money(t.carriedForwardLossCents)}.</Text> : null}
-      {t.capitalLossCarriedForwardCents > 0 ? <Text style={styles.small}>Net capital loss carried forward: {money(t.capitalLossCarriedForwardCents)}.</Text> : null}
+      <LossesCarriedForward snapshot={snapshot} />
+    </View>
+  );
+}
+
+/**
+ * Losses carried forward, kept in two separate places: net capital losses (only usable against
+ * capital gains) and deferred non-commercial business losses, one row per activity (only usable
+ * against that activity's later profit). Both come from the same estimate as every other figure.
+ */
+export function LossesCarriedForward({ snapshot }: { snapshot: ReportSnapshot }) {
+  const t = snapshot.estimate.totals;
+  const rows = (snapshot.estimate.deferredLosses ?? []).filter((d) => d.openingCents || d.currentLossCents || d.closingCents);
+  if (t.capitalLossCarriedForwardCents <= 0 && rows.length === 0) return null;
+  const statusText = { deferred: 'Deferred: no loss test met', review: 'Loss test ticked: review', none: 'Profit year' } as const;
+  return (
+    <View style={{ marginTop: 8 }}>
+      <Text style={styles.h3}>Losses carried forward</Text>
+      <Text style={styles.small}>
+        Net capital losses carried forward: {money(t.capitalLossCarriedForwardCents)} (only usable against future capital gains).
+      </Text>
+      {rows.length ? (
+        <>
+          <Text style={[styles.small, { marginTop: 4 }]}>Deferred business losses, by activity (only usable against later profit from the same activity; never against salary this year):</Text>
+          <Table
+            columns={[
+              { key: 'a', header: 'Activity', width: 3 },
+              { key: 'o', header: 'Opening', width: 2, align: 'right' },
+              { key: 'u', header: 'Used', width: 2, align: 'right' },
+              { key: 'l', header: 'This year\'s loss', width: 2, align: 'right' },
+              { key: 'c', header: 'Carried forward', width: 2, align: 'right' },
+              { key: 's', header: 'Status', width: 3 },
+            ]}
+            rows={rows.map((d) => ({ _key: d.activityId, a: d.activity, o: money(d.openingCents), u: money(d.usedCents), l: money(d.currentLossCents), c: money(d.closingCents), s: statusText[d.status] }))}
+          />
+        </>
+      ) : null}
     </View>
   );
 }

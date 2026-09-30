@@ -238,7 +238,7 @@ describe('hiddenAnswerUpdates', () => {
     expect(hiddenAnswerUpdates(bank, a, visibleQuestions(bank, a, ctx(), noTags))).toEqual([]);
   });
 
-  it('covers not_sure, imported and skipped rows but not rows already n/a', () => {
+  it('covers not_sure and skipped rows; keeps imported suggestions waiting; skips rows already n/a', () => {
     const a = view([
       rec('res.status', 'no'),
       notSure('res.arrival'),
@@ -249,7 +249,8 @@ describe('hiddenAnswerUpdates', () => {
     ], [item('i1', 'employer', 0), item('i2', 'employer', 1), item('i3', 'employer', 2)]);
     const updates = hiddenAnswerUpdates(bank, a, visibleQuestions(bank, a, ctx(), noTags));
     const keys = updates.map((u) => `${u.questionId}@${u.repeaterItemId ?? ''}`).sort();
-    expect(keys).toEqual(['emp.employer.lump_a@i1', 'emp.employer.lump_a@i2', 'res.arrival@']);
+    // i1 is an unconfirmed imported suggestion behind a hidden question: kept (it never counts).
+    expect(keys).toEqual(['emp.employer.lump_a@i2', 'res.arrival@']);
     expect(updates.every((u) => u.state === 'not_applicable_by_rule')).toBe(true);
   });
 

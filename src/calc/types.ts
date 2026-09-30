@@ -84,6 +84,28 @@ export interface Estimate {
   uncertainInputs: string[];
   /** Modules that were fully computed vs routed to review. */
   moduleStatus: Record<string, 'computed' | 'manual_review' | 'not_applicable'>;
+  /**
+   * Deferred non-commercial losses, one row per business activity (the main business and each
+   * separate activity). Kept apart from capital losses. Optional so older stored estimates load.
+   */
+  deferredLosses?: DeferredLossRow[];
+}
+
+/** One business activity's deferred non-commercial loss roll-forward for the year. */
+export interface DeferredLossRow {
+  /** 'main' for the main business, else the business_activity repeater item id. */
+  activityId: string;
+  activity: string;
+  /** Unused deferred loss brought forward from earlier years. */
+  openingCents: number;
+  /** This year's net loss of the activity (0 when it made a profit). */
+  currentLossCents: number;
+  /** Opening balance used against this activity's profit this year. */
+  usedCents: number;
+  /** Carried forward to next year: opening - used + current loss when deferred. */
+  closingCents: number;
+  /** deferred: loss not deducted this year; review: a loss test was ticked, needs confirmation; none: profit or break-even. */
+  status: 'deferred' | 'review' | 'none';
 }
 
 export interface CalcInput {

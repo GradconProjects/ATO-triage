@@ -188,6 +188,13 @@ export const Q = {
     priorLosses: 'cgt.prior_losses',    // money: net capital losses carried forward from earlier years
     cryptoMethod: 'cgt.crypto_method',  // single: specific_id | fifo | other | not_sure
     cryptoIncome: 'cgt.crypto_income',  // money I (staking/airdrops)
+    priorLossesAny: 'cgt.prior_losses.any',           // yes_no_unsure (asked when there is no CGT event this year)
+    priorLossesOrigin: 'cgt.prior_losses.origin',     // multi: spot_sales | derivatives | property | other | not_sure
+    priorLossesCorrection: 'cgt.prior_losses.correction', // text: reviewed reclassification and its evidence
+    derivativesAny: 'cgt.derivatives.any',            // yes_no_unsure
+    derivativesNature: 'cgt.derivatives.nature',      // single: investment | business | not_sure
+    derivativesNet: 'cgt.derivatives.net',            // money (may be negative): net result, investment only
+    platforms: 'cgt.platforms',                       // text: exchanges or platforms used (reusable detail)
   },
   // M12 foreign
   fgn: {
@@ -212,6 +219,21 @@ export const Q = {
     ptName: 'bus.pt.name',
     ptShare: 'bus.pt.share',            // money (may be negative loss -> R)
     ptCredits: 'bus.pt.credits',        // money credit franking
+    name: 'bus.name',                   // text: what the main business does (reusable detail)
+    lossTests: 'bus.loss.tests',        // multi: income_20k | profit_3_of_5 | property_500k | assets_100k | none | not_sure
+    priorDeferred: 'bus.prior_deferred', // money: main business deferred non-commercial losses from earlier years (opening balance)
+    // Separate business activities (group 'business_activity'); the main business stays on the fields above.
+    activityAny: 'bus.activity.any',    // yes_no_unsure
+    activityRepeater: 'bus.activity',   // repeater, group 'business_activity'
+    activityName: 'bus.activity.name',  // text
+    activityKind: 'bus.activity.kind',  // single: crypto_trading | derivatives_trading | trading_signals | other | not_sure
+    activityAbn: 'bus.activity.abn',    // text optional
+    activityIncome: 'bus.activity.income', // money
+    activityExpSubscriptions: 'bus.activity.exp_subscriptions', // money: signal, data and research subscriptions
+    activityExpPlatform: 'bus.activity.exp_platform',           // money: exchange, platform and brokerage fees
+    activityExpOther: 'bus.activity.exp_other',                 // money: all other expenses of this activity
+    activityLossTests: 'bus.activity.loss_tests',               // multi, as bus.loss.tests
+    activityPriorDeferred: 'bus.activity.prior_deferred',       // money: opening deferred loss for this activity
   },
   // M14 deductions
   ded: {
@@ -250,6 +272,7 @@ export const Q = {
     toolPaid: 'ded.tool.paid',
     toolEvidence: 'ded.tool.evidence',
     toolEffectiveLife: 'ded.tool.effective_life', // number years (for $300+)
+    toolOpeningValue: 'ded.tool.opening_value', // money: opening adjustable value for an item first used before this year
     // Home office (special module)
     wfhAny: 'ded.wfh.any',
     wfhMethod: 'ded.wfh.method',        // single: fixed_rate | actual | not_sure
@@ -381,6 +404,7 @@ export const GROUPS = {
   rentalProperty: 'rental_property',
   cgtEvent: 'cgt_event',
   partnershipTrust: 'partnership_trust',
+  businessActivity: 'business_activity',
   toolItem: 'tool_item',
 } as const;
 

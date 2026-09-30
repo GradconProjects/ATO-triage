@@ -3,6 +3,16 @@ import type { Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
 import { flatten, money, multi, noneOption, opt, repeater, single, text, yes, yesNoUnsure } from './shared';
 
+const BA = GROUPS.businessActivity;
+const BA_ON = yes(Q.bus.activityAny);
+const LOSS_TEST_OPTIONS = [
+  opt('income_20k', 'Business income was at least $20,000'),
+  opt('profit_3_of_5', 'It made a profit in at least 3 of the last 5 years'),
+  opt('property_500k', 'It uses real property worth at least $500,000'),
+  opt('assets_100k', 'It uses other assets worth at least $100,000'),
+  noneOption('None of these'),
+];
+
 const P = GROUPS.partnershipTrust;
 const ST = yes(Q.bus.soleTrader);
 const PT = yes(Q.bus.ptAny);
@@ -46,13 +56,58 @@ export const BUSINESS_QUESTIONS: Question[] = flatten(
     showIf: ST, feeds: ['business'],
     help: 'A business loss can only offset other income if one of the non-commercial loss tests is met. Otherwise it is carried forward.',
   }),
-  multi('bus.loss.tests', 'business', 'Which of these applied to the business?', [
-    opt('income_20k', 'Business income was at least $20,000'),
-    opt('profit_3_of_5', 'It made a profit in at least 3 of the last 5 years'),
-    opt('property_500k', 'It uses real property worth at least $500,000'),
-    opt('assets_100k', 'It uses other assets worth at least $100,000'),
-    noneOption('None of these'),
-  ], { showIf: yes('bus.loss'), feeds: ['business'], help: 'The non-commercial loss tests. If none apply, the loss is deferred; either way it goes to manual review.' }),
+  multi(Q.bus.lossTests, 'business', 'Which of these applied to the business?', LOSS_TEST_OPTIONS, { showIf: yes('bus.loss'), feeds: ['business'], help: 'The non-commercial loss tests. If none apply, the loss is deferred to a later year instead of reducing your other income.' }),
+  text(Q.bus.name, 'business', 'In a few words, what does the business do? (optional)', {
+    showIf: ST, required: false, validation: [{ kind: 'maxLength', value: 120 }],
+    help: 'For example "electrical contracting" or "crypto trading". Keeps each business activity separate in the report.',
+  }),
+  money(Q.bus.priorDeferred, 'business', 'Deferred business losses from earlier years for this business (optional)', {
+    showIf: ST, required: false, calc: { business: 'prior_deferred' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'A loss from an earlier year that could not be used because no non-commercial loss test was met. It can only be used against future profit from this same activity. Leave blank if none.',
+  }),
+
+  // ---- Separate business activities ----
+  yesNoUnsure(Q.bus.activityAny, 'business', 'Did you run any other, separate business activity this year?', {
+    required: false, feeds: ['business'],
+    help: 'For example crypto or futures trading carried on as a business, or selling trading signals. Each activity keeps its own income, expenses and losses. Occasional investing is not a business; enter those sales under Capital gains.',
+  }),
+  repeater(Q.bus.activityRepeater, 'business', 'Your other business activities', {
+    groupId: BA, itemLabel: 'Business activity', addLabel: 'Add another business activity', minItems: 1, labelFrom: Q.bus.activityName,
+  }, { showIf: BA_ON, help: 'One entry per separate activity. Enter each expense once, under the activity it belongs to.' }),
+  text(Q.bus.activityName, 'business', 'What is this activity called?', { repeaterGroup: BA, showIf: BA_ON, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
+  single(Q.bus.activityKind, 'business', 'What kind of activity is it?', [
+    opt('crypto_trading', 'Crypto trading carried on as a business'),
+    opt('derivatives_trading', 'Futures, CFD or other derivatives trading carried on as a business'),
+    opt('trading_signals', 'Providing or selling trading signals or courses'),
+    opt('other', 'Another kind of business'),
+  ], { repeaterGroup: BA, showIf: BA_ON, feeds: ['business'] }),
+  text(Q.bus.activityAbn, 'business', 'ABN for this activity (optional)', {
+    repeaterGroup: BA, showIf: BA_ON, required: false,
+    validation: [{ kind: 'pattern', value: '^\\s*\\d{2}\\s?\\d{3}\\s?\\d{3}\\s?\\d{3}\\s*$', message: 'An ABN is 11 digits.' }],
+  }),
+  money(Q.bus.activityIncome, 'business', 'What was the income from this activity for the year?', {
+    repeaterGroup: BA, showIf: BA_ON, calc: { business: 'activity_income' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Sales, fees or trading gains of this activity. Enter 0 if it earned nothing.',
+  }),
+  money(Q.bus.activityExpSubscriptions, 'business', 'Signal, data or research subscriptions for this activity (optional)', {
+    repeaterGroup: BA, showIf: BA_ON, required: false, calc: { business: 'activity_expense' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Enter each subscription here once. Do not also enter it as a work deduction or as a separate loss: it already reduces this activity\'s result.',
+  }),
+  money(Q.bus.activityExpPlatform, 'business', 'Exchange, platform or brokerage fees for this activity (optional)', {
+    repeaterGroup: BA, showIf: BA_ON, required: false, calc: { business: 'activity_expense' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+  }),
+  money(Q.bus.activityExpOther, 'business', 'All other expenses of this activity (optional)', {
+    repeaterGroup: BA, showIf: BA_ON, required: false, calc: { business: 'activity_expense' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Everything not entered above. Leave out personal costs and anything already claimed elsewhere.',
+  }),
+  multi(Q.bus.activityLossTests, 'business', 'If this activity made a loss, which of these applied to it?', LOSS_TEST_OPTIONS, {
+    repeaterGroup: BA, showIf: BA_ON, required: false, feeds: ['business'],
+    help: 'Only matters for a loss. If none applies, the loss is deferred and cannot reduce your other income this year.',
+  }),
+  money(Q.bus.activityPriorDeferred, 'business', 'Deferred losses from earlier years for this activity (optional)', {
+    repeaterGroup: BA, showIf: BA_ON, required: false, calc: { business: 'prior_deferred' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Only the unused deferred loss of this activity from earlier years. Capital losses are entered separately under Capital gains.',
+  }),
 
   // ---- Partnerships and trusts ----
   yesNoUnsure(Q.bus.ptAny, 'business', 'Did you receive a share of income from a partnership or a family trust this year?', {

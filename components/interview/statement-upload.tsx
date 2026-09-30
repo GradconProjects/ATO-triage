@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import type { ClientCaseState } from '@/src/lib/case-state';
 import type { ExtractedStatement } from '@/src/lib/documents/extract';
+import type { EmployerPlan, ImportAction } from '@/src/lib/documents/plan';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/src/lib/utils';
 
@@ -23,11 +24,23 @@ async function shrinkImage(file: File): Promise<File> {
 
 const dollars = (v: number | null) => (v === null ? '—' : formatMoney(Math.round(v * 100)));
 
+const ACTION: Record<ImportAction, { text: string; cls: string }> = {
+  add: { text: 'New', cls: 'bg-blue-100 text-blue-800' },
+  update: { text: 'Updates what you entered', cls: 'bg-amber-100 text-amber-900' },
+  link: { text: 'Already entered: adds this document as evidence', cls: 'bg-green-100 text-green-800' },
+  review_duplicate: { text: 'Possible duplicate: not added', cls: 'bg-red-100 text-red-800' },
+};
+function ActionBadge({ action }: { action: ImportAction | undefined }) {
+  if (!action) return null;
+  const a = ACTION[action];
+  return <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-normal ${a.cls}`}>{a.text}</span>;
+}
+
 export function StatementUpload({ caseId, onApplied }: { caseId: string; onApplied(state: ClientCaseState): void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'reading' | 'saving' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ extracted: ExtractedStatement; fyMismatch: string | null } | null>(null);
+  const [result, setResult] = useState<{ extracted: ExtractedStatement; fyMismatch: string | null; documentId: string | null; duplicateOf: { uploadedAt: string } | null; plan: EmployerPlan[] } | null>(null);
   const [chosen, setChosen] = useState<Set<number>>(new Set());
   const [done, setDone] = useState<string | null>(null);
 
@@ -40,9 +53,12 @@ export function StatementUpload({ caseId, onApplied }: { caseId: string; onAppli
       const body = new FormData();
       body.append('file', await shrinkImage(file));
       const res = await fetch(`/api/cases/${caseId}/documents`, { method: 'POST', body });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; extracted?: ExtractedStatement; fyMismatch?: string | null };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; extracted?: ExtractedStatement; fyMismatch?: string | null; documentId?: string | null; duplicateOf?: { uploadedAt: string } | null };
       if (!res.ok || !data.extracted) throw new Error(data.error ?? 'The document could not be read.');
-      setResult({ extracted: data.extracted, fyMismatch: data.fyMismatch ?? null });
+      // Preview what the import would do before anything is written.
+      const dry = await fetch(`/api/cases/${caseId}/documents/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employers: data.extracted.employers, dryRun: true }) });
+      const planned = (await dry.json().catch(() => ({}))) as { plan?: EmployerPlan[] };
+      setResult({ extracted: data.extracted, fyMismatch: data.fyMismatch ?? null, documentId: data.documentId ?? null, duplicateOf: data.duplicateOf ?? null, plan: planned.plan ?? [] });
       setChosen(new Set(data.extracted.employers.map((_, i) => i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed.');
@@ -57,12 +73,12 @@ export function StatementUpload({ caseId, onApplied }: { caseId: string; onAppli
     setError(null);
     try {
       const employers = result.extracted.employers.filter((_, i) => chosen.has(i));
-      const res = await fetch(`/api/cases/${caseId}/documents/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employers }) });
+      const res = await fetch(`/api/cases/${caseId}/documents/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employers, documentId: result.documentId }) });
       const data = (await res.json().catch(() => ({}))) as { error?: string; state?: ClientCaseState; written?: number };
       if (!res.ok || !data.state) throw new Error(data.error ?? 'Could not add the figures.');
       onApplied(data.state);
       setResult(null);
-      setDone(`Added ${employers.length} ${employers.length === 1 ? 'employer' : 'employers'} from the statement. Check each figure below; you can change any of them.`);
+      setDone(data.written ? `Added the statement figures (${data.written} answers). Check each figure below; you can change any of them.` : 'Nothing new to add: everything on this statement is already entered.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add the figures.');
     }
@@ -104,6 +120,11 @@ export function StatementUpload({ caseId, onApplied }: { caseId: string; onAppli
       ) : null}
       {result ? (
         <div className="mt-4 space-y-3">
+          {result.duplicateOf ? (
+            <p className="rounded-md border border-blue-200 bg-blue-50 p-2 text-sm">
+              You already uploaded this exact file on {new Date(result.duplicateOf.uploadedAt).toLocaleDateString('en-AU')}. Anything already entered is shown below and will not be added again.
+            </p>
+          ) : null}
           {result.fyMismatch ? (
             <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
               This statement looks like it is for {result.fyMismatch}, not this tax year. Check before adding.
@@ -126,6 +147,7 @@ export function StatementUpload({ caseId, onApplied }: { caseId: string; onAppli
                   }
                 />
                 {e.name}
+                <ActionBadge action={result.plan.find((p) => p.index === i)?.action} />
                 {e.taxReady === false ? <span className="text-xs font-normal text-amber-700">(not tax ready)</span> : null}
               </span>
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
@@ -158,12 +180,19 @@ export function StatementUpload({ caseId, onApplied }: { caseId: string; onAppli
                     </span>
                   ) : null,
                 )}
-                {e.allowances.map((a, j) => (
-                  <span key={j} className="contents">
-                    <dt className="text-muted">Allowance: {a.description}</dt>
-                    <dd>{dollars(a.amount)}</dd>
-                  </span>
-                ))}
+                {e.allowances.map((a, j) => {
+                  const ap = result.plan.find((p) => p.index === i)?.allowances.find((x) => x.index === j);
+                  return (
+                    <span key={j} className="contents">
+                      <dt className="text-muted">Allowance: {a.description}</dt>
+                      <dd>
+                        {dollars(a.amount)}
+                        <ActionBadge action={ap?.action} />
+                        {ap?.action === 'review_duplicate' ? <span className="block text-xs text-red-800">{ap.reason}</span> : null}
+                      </dd>
+                    </span>
+                  );
+                })}
               </dl>
             </label>
           ))}

@@ -51,6 +51,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
                   <Link href={`/cases/${c.id}/estimate`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                     Estimate
                   </Link>
+                  {c.status !== 'final' && cases.some((o) => o.financial_year < c.financial_year) ? (
+                    <Link href={`/cases/${c.id}/prefill`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                      Prefill from earlier year
+                    </Link>
+                  ) : null}
                   {c.status !== 'final' && can?.deleteCase ? (
                     <form action={deleteCaseAction.bind(null, profileId, c.id)}>
                       <ConfirmButton label="Delete" message={`Delete the ${c.financial_year} case and all its answers?`} />
@@ -103,7 +108,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ profil
                     </option>
                   ))}
                 </Select>
-                <p className="mt-1 text-xs text-muted">Copied answers arrive marked “imported” and you must confirm each one before it counts.</p>
+                <p className="mt-1 text-xs text-muted">You will see a preview first. Copied values arrive as suggestions and you confirm each one before it counts.</p>
               </div>
             ) : null}
             <Button type="submit">Start year</Button>
