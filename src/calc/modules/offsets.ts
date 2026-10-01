@@ -113,51 +113,198 @@ export function computeOtherOffsets(cx: CalcContext, i: OffsetsInput): OffsetsRe
     } else cx.setStatus('fito', 'not_applicable');
   }
 
-  // Private health insurance rebate reconciliation.
+  // Private health insurance rebate reconciliation (refundable offset or recovery), per policy.
   {
-    const policies = cx.items(GROUPS.phiPolicy);
-    let any = false;
-    for (const p of policies) {
-      const vis = (q: string) => cx.visible.has(`${q}@${p.id}`);
-      const premiums = vis(Q.phi.policyPremiums) ? cx.a.cents(Q.phi.policyPremiums, p.id) : undefined;
-      const received = vis(Q.phi.policyRebate) ? cx.a.cents(Q.phi.policyRebate, p.id) : undefined;
-      if (premiums === undefined || received === undefined) continue;
-      any = true;
-      const inputs = [Q.phi.policyPremiums, Q.phi.policyRebate, Q.phi.policyTier, Q.fam.spouse, Q.fam.dependantsCount];
-      const claimedTier = cx.a.string(Q.phi.policyTier, p.id);
-      if (claimedTier === undefined || claimedTier === 'not_sure') {
-        cx.setStatus('phi_rebate', 'manual_review');
-        cx.review('phi_rebate', 'Private health rebate tier claimed with the insurer is not sure; the rebate reconciliation cannot be done.', [Q.phi.policyTier]);
-        cx.markUncertain(`${Q.phi.policyRebate}@${p.id}`);
-        cx.lines.review({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate adjustment', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'tier claimed unknown', note: 'Check the tier on the private health insurance statement.', itemId: p.id });
-        continue;
-      }
-      const fam = familyInfo(cx);
-      const own = mlsIncomeCents(i.taxableCents, i.rfbCents, i.rescCents, 0);
-      const testIncome = fam.isFamily ? own + (fam.spouseMlsIncomeCents ?? 0) : own;
-      const tier = mlsTier(testIncome, fam.isFamily, fam.children, rules);
-      const rebate = rules.phiRebate.find((r) => r.tier === tier.tier);
-      if (!rebate) continue;
-      // Blend the two rebate periods (1 Jul - 31 Mar: 9 months; 1 Apr - 30 Jun: 3 months). Age under 65 assumed.
-      const pctEntitled = new Decimal(rebate.under65).mul(9).plus(new Decimal(rebate.under65Apr).mul(3)).div(12);
-      const entitled = new Decimal(premiums).mul(pctEntitled).div(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
-      const diff = entitled - received;
-      cx.assume('Private health rebate entitlement uses the under-65 percentage, blended 9/12 (Jul-Mar) and 3/12 (Apr-Jun) over the year\'s premiums.');
-      cx.setStatus('phi_rebate', 'computed');
-      const formula = `entitled ${entitled / 100} (premiums ${premiums / 100} x ${pctEntitled.toFixed(3)}% for income tier ${tier.tier}) - rebate received ${received / 100} (claimed tier ${claimedTier})`;
-      if (diff > 0) {
-        refundable += diff;
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate still owed (refundable offset)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
-      } else if (diff < 0) {
-        phiLiability += -diff;
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'phi_recovery', label: 'Private health insurance rebate recovered (excess rebate received)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id, note: 'Rebate received exceeds the entitlement for your income tier; the excess is added to tax.' });
-      } else {
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate (no adjustment)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
-      }
-    }
-    if (!any && cx.moduleStatus['phi_rebate'] === undefined) cx.setStatus('phi_rebate', 'not_applicable');
+    const r = reconcilePhi(cx, i);
+    refundable += r.refundableCents;
+    phiLiability += r.liabilityCents;
   }
 
   if (cx.moduleStatus['offsets'] === undefined) cx.setStatus('offsets', 'not_applicable');
   return { offsetsCents: offsets, phiLiabilityCents: phiLiability, refundableCents: refundable };
+}
+
+type AgeBand = 'under65' | '65_69' | '70plus';
+const AGE_FROM_CODE: Record<string, AgeBand> = { '30': 'under65', '31': 'under65', '35': '65_69', '36': '65_69', '40': '70plus', '41': '70plus' };
+
+function rebatePct(rules: CalcContext['rules'], tier: number, age: AgeBand, fromApril: boolean): number | undefined {
+  const row = rules.phiRebate.find((x) => x.tier === tier);
+  if (!row) return undefined;
+  if (age === 'under65') return fromApril ? row.under65Apr : row.under65;
+  if (age === '65_69') return fromApril ? row.age65to69Apr : row.age65to69;
+  return fromApril ? row.age70plusApr : row.age70plus;
+}
+
+/**
+ * Private health insurance rebate (refundable offset or recovery), per policy.
+ * - Statement lines (label J premiums eligible = your share without LHC loading, K rebate
+ *   received, L benefit code = age band and period) give an exact calculation per period.
+ * - Without a statement, your share = (premiums - LHC loading) / adults covered, split 9/12 and
+ *   3/12 between the periods: marked approximate.
+ * - Entitlement uses your income tier (income for surcharge purposes; couples and families use
+ *   combined income), never the insurer's chosen tier. An unknown spouse income leaves it unresolved.
+ * - Tax claim code E or F: the rebate is not claimed in this return.
+ */
+function reconcilePhi(cx: CalcContext, i: OffsetsInput): { refundableCents: number; liabilityCents: number } {
+  const rules = cx.rules;
+  const fy = rules.fy;
+  let refundable = 0;
+  let liability = 0;
+  let any = false;
+  const fam = familyInfo(cx);
+  for (const p of cx.items(GROUPS.phiPolicy)) {
+    const val = (q: string) => (cx.visible.has(`${q}@${p.id}`) ? cx.a.cents(q, p.id) : undefined);
+    const str = (q: string) => (cx.visible.has(`${q}@${p.id}`) ? cx.a.string(q, p.id) : undefined);
+    const inputs = [Q.phi.policyPremiums, Q.phi.policyRebate, Q.phi.policyJ1, Q.phi.policyK1, Q.phi.policyJ2, Q.phi.policyK2, Q.phi.policyElection, Q.phi.policyAmountBasis, Q.fam.spouse, Q.fam.dependantsCount];
+    const id = `offset.phi@${p.id}`;
+    const statement = str(Q.phi.policySource) === 'statement' || val(Q.phi.policyJ1) !== undefined || val(Q.phi.policyJ2) !== undefined;
+    const unresolved = (reason: string, ids: string[], amount?: number) => {
+      any = true;
+      cx.setStatus('phi_rebate', 'manual_review');
+      cx.markUncertain(`${Q.phi.policyPremiums}@${p.id}`);
+      cx.review('phi_rebate', reason, ids, amount);
+      cx.lines.review({ id, section: 'refundable_offsets', label: 'Private health insurance rebate adjustment (unresolved)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'not worked out', note: `Affects the estimate. ${reason}`, itemId: p.id });
+    };
+
+    type Line = { premiums: number; received: number; age: AgeBand; fromApril: boolean; whose: 'mine' | 'spouse' };
+    const lines: Line[] = [];
+    const approximations: string[] = [];
+    let uncertain = false;
+    let totalPolicyPremiums: number | undefined;
+    const addStatementLine = (j: string, k: string, l: string, fromApril: boolean, whose: Line['whose']) => {
+      const premiums = val(j);
+      if (premiums === undefined) return;
+      const received = val(k);
+      const code = str(l);
+      let age = code ? AGE_FROM_CODE[code] : undefined;
+      if (!age) { age = 'under65'; approximations.push(`benefit code missing on ${whose === 'spouse' ? 'the spouse\'s' : 'a'} ${fromApril ? 'April to June' : 'July to March'} line: under-65 rate assumed`); uncertain = true; }
+      if (received === undefined) { approximations.push('a rebate-received (K) figure is missing'); uncertain = true; }
+      lines.push({ premiums, received: received ?? 0, age, fromApril, whose });
+    };
+
+    if (statement) {
+      addStatementLine(Q.phi.policyJ1, Q.phi.policyK1, Q.phi.policyL1, false, 'mine');
+      addStatementLine(Q.phi.policyJ2, Q.phi.policyK2, Q.phi.policyL2, true, 'mine');
+    } else {
+      const total = val(Q.phi.policyPremiums);
+      const received = val(Q.phi.policyRebate);
+      if (total === undefined || received === undefined) continue;
+      totalPolicyPremiums = total;
+      const basis = str(Q.phi.policyAmountBasis);
+      let share: number;
+      let shareReceived: number;
+      if (basis === 'my_share') {
+        share = total;
+        shareReceived = received;
+      } else if (basis === 'full_policy') {
+        const adults = cx.a.number(Q.phi.policyAdults, p.id);
+        if (adults === undefined || adults < 1) { unresolved('The number of adults covered is needed to work out your share of the full policy premium.', [`${Q.phi.policyAdults}@${p.id}`], total); continue; }
+        const lhc = val(Q.phi.policyLhc) ?? 0;
+        share = Math.round((total - lhc) / Math.trunc(adults));
+        shareReceived = Math.round(received / Math.trunc(adults));
+        approximations.push(`your share is (full premium ${total / 100}${lhc ? ` - LHC loading ${lhc / 100}` : ''}) / ${Math.trunc(adults)} adults`);
+      } else if (fam.hasSpouse) {
+        // Never assign a whole family premium to one adult without confirming the allocation.
+        unresolved(`It is not confirmed whether the ${total / 100} premium is the whole policy or your allocated share. A family premium is shared between the adults covered, so the rebate cannot be worked out until this is answered (or the statement lines are entered).`, [`${Q.phi.policyAmountBasis}@${p.id}`], total);
+        continue;
+      } else {
+        share = total;
+        shareReceived = received;
+        approximations.push('premium treated as yours alone (allocation not confirmed)');
+        uncertain = true;
+      }
+      const ageAns = str(Q.phi.policyAge);
+      const age: AgeBand = ageAns === '65_69' || ageAns === '70plus' || ageAns === 'under65' ? ageAns : 'under65';
+      if (ageAns !== age) { approximations.push('age of the oldest person covered not given: under-65 rate assumed'); uncertain = true; }
+      if (received === 0 && str(Q.phi.policyRebateConfirmed) !== 'yes') { approximations.push('a $0 rebate received is not confirmed as "paid full price"'); uncertain = true; }
+      const jul = Math.round((share * 9) / 12);
+      const julRec = Math.round((shareReceived * 9) / 12);
+      lines.push({ premiums: jul, received: julRec, age, fromApril: false, whose: 'mine' }, { premiums: share - jul, received: shareReceived - julRec, age, fromApril: true, whose: 'mine' });
+      approximations.push('no statement lines: premiums split 9/12 (July to March) and 3/12 (April to June)');
+    }
+    if (lines.length === 0) continue;
+    any = true;
+
+    if (str(Q.phi.policyCoveredAs) === 'dependant') {
+      cx.setStatus('phi_rebate', cx.moduleStatus['phi_rebate'] ?? 'computed');
+      cx.lines.excluded({ id, section: 'refundable_offsets', label: 'Private health insurance rebate (covered as a dependant)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'dependant on the policy', note: 'Neither share is included: dependants get no rebate in their own return.', itemId: p.id });
+      continue;
+    }
+    // Spouse election: which shares belong in this return.
+    let includes = 'your share';
+    if (fam.hasSpouse) {
+      const election = str(Q.phi.policyElection);
+      const confirmed = str(Q.phi.policySpouseConfirmed);
+      if (election === undefined || election === 'not_sure') { unresolved('Choose who claims the rebate for this policy (your share only, both shares, or your spouse claims yours). A share can be claimed in one return only.', [`${Q.phi.policyElection}@${p.id}`]); continue; }
+      if (election === 'spouse_claims_mine') {
+        cx.setStatus('phi_rebate', cx.moduleStatus['phi_rebate'] ?? 'computed');
+        cx.lines.excluded({ id, section: 'refundable_offsets', label: 'Private health insurance rebate (your spouse claims your share)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'election: spouse claims my share', note: 'This return includes neither share; your share is reconciled in your spouse\'s return.', itemId: p.id });
+        if (confirmed !== 'yes') cx.review('phi_rebate', 'Confirm that your spouse is including your share of the rebate in their return.', [`${Q.phi.policySpouseConfirmed}@${p.id}`]);
+        continue;
+      }
+      if (election === 'both_shares') {
+        if (cx.a.string(Q.phi.policySpouseShare, p.id) !== 'yes') { unresolved('Claiming your spouse\'s share needs all three ATO conditions confirmed (same policy and period, together on 30 June, spouse agrees).', [`${Q.phi.policySpouseShare}@${p.id}`]); continue; }
+        const before = lines.length;
+        addStatementLine(Q.phi.policySpouseJ1, Q.phi.policySpouseK1, Q.phi.policySpouseL1, false, 'spouse');
+        addStatementLine(Q.phi.policySpouseJ2, Q.phi.policySpouseK2, Q.phi.policySpouseL2, true, 'spouse');
+        if (lines.length === before) { unresolved('Enter your spouse\'s own statement lines (J, K, benefit code) to include their share; they are never assumed to equal yours.', [`${Q.phi.policySpouseJ1}@${p.id}`]); continue; }
+        if (confirmed !== 'yes') { unresolved('Confirm that your spouse is leaving their share out of their own return, so it is claimed only once.', [`${Q.phi.policySpouseConfirmed}@${p.id}`]); continue; }
+        includes = 'your share and your spouse\'s share';
+      } else if (confirmed !== 'yes') {
+        approximations.push('your spouse\'s matching election is not confirmed');
+        uncertain = true;
+      }
+    }
+
+    // Income tier: income for surcharge purposes; couples (and single parents) use family thresholds.
+    const own = mlsIncomeCents(i.taxableCents, i.rfbCents, i.rescCents, 0);
+    if (fam.hasSpouse && fam.spouseMlsIncomeCents === undefined) {
+      cx.markUncertain(Q.fam.spouseTaxableIncome);
+      unresolved('The rebate tier depends on the family income for surcharge purposes, and part of the spouse\'s income (taxable income, fringe benefits or reportable super) is not known.', [Q.fam.spouseTaxableIncome, Q.fam.spouseRfb, Q.fam.spouseRsc], lines.reduce((a, l) => a + l.premiums, 0));
+      continue;
+    }
+    // Single parents (dependent children, no spouse) also use the family thresholds.
+    const family = fam.hasSpouse || fam.children > 0;
+    const testIncome = family ? own + (fam.spouseMlsIncomeCents ?? 0) : own;
+    const tier = mlsTier(testIncome, family, fam.children, rules);
+    if (fam.hasSpouse && cx.a.string(Q.fam.spouse) === 'part_year') { approximations.push('family status on 30 June assumed to be "with a spouse"'); uncertain = true; }
+
+    let entitled = 0;
+    const parts: string[] = [];
+    let missingRate = false;
+    for (const l of lines) {
+      const pct = rebatePct(rules, tier.tier, l.age, l.fromApril);
+      if (pct === undefined) { missingRate = true; continue; }
+      const e = new Decimal(l.premiums).mul(pct).div(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
+      entitled += e;
+      parts.push(`${l.fromApril ? 'Apr-Jun' : 'Jul-Mar'}: ${l.premiums / 100} x ${pct}% (${l.age.replace('_', '-')}) = ${e / 100}`);
+    }
+    if (missingRate) {
+      cx.setStatus('phi_rebate', 'manual_review');
+      cx.review('phi_rebate', `No rebate percentage in the ${fy} rule set for income tier ${tier.tier}.`, inputs);
+      continue;
+    }
+    const received = lines.reduce((a, l) => a + l.received, 0);
+    const diff = entitled - received;
+    if (uncertain) cx.markUncertain(`${Q.phi.policyPremiums}@${p.id}`);
+    const approx = approximations.length > 0;
+    if (approx) cx.assume(`Private health rebate (${approximations.join('; ')}).`);
+    cx.setStatus('phi_rebate', cx.moduleStatus['phi_rebate'] === 'manual_review' ? 'manual_review' : 'computed');
+    const eligible = lines.reduce((a, l) => a + l.premiums, 0);
+    const formula = `includes ${includes}: eligible premiums ${eligible / 100}${totalPolicyPremiums !== undefined && totalPolicyPremiums !== eligible ? ` (of ${totalPolicyPremiums / 100} total policy premiums)` : ''}; entitled ${entitled / 100} [${parts.join('; ')}; income tier ${tier.tier} on ${family ? 'family' : 'single'} income for surcharge purposes ${testIncome / 100}] - rebate already received ${received / 100} = ${(entitled - received) / 100}`;
+    const note = approx ? `Approximate: ${approximations.join('; ')}.` : undefined;
+    const detail = { includes, eligiblePremiumsCents: eligible, totalPolicyPremiumsCents: totalPolicyPremiums ?? null, rebateReceivedCents: received, entitledCents: entitled, tier: tier.tier, statementLines: lines.length };
+    const common = { ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id, detail, ...(approx ? { provisional: true } : {}), ...(note ? { note } : {}) };
+    if (diff > 0) {
+      refundable += diff;
+      cx.lines.computed({ id, section: 'refundable_offsets', label: 'Private health insurance rebate still owed (refundable offset)', amountCents: diff, ...common });
+    } else if (diff < 0) {
+      liability += -diff;
+      cx.lines.computed({ id, section: 'phi_recovery', label: 'Private health insurance rebate recovered (excess rebate received)', amountCents: diff, ...common, note: note ?? 'Rebate received exceeds the entitlement for your income tier; the excess is recovered.' });
+    } else {
+      cx.lines.computed({ id, section: 'refundable_offsets', label: 'Private health insurance rebate (no adjustment)', amountCents: 0, ...common });
+    }
+  }
+  if (!any && cx.moduleStatus['phi_rebate'] === undefined) cx.setStatus('phi_rebate', 'not_applicable');
+  return { refundableCents: refundable, liabilityCents: liability };
 }

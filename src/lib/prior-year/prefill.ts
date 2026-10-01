@@ -67,7 +67,10 @@ const norm = (s: unknown) => (typeof s === 'string' ? s.toLowerCase().replace(/p
 /** Annual facts: shown as suggestions only. Amount-type annual facts are never proposed. */
 const ANNUAL_FACTS = [Q.res.status, Q.fam.spouse, Q.phi.cover, 'loan.types', Q.rent.any, Q.bus.soleTrader, Q.bus.activityAny, Q.cgt.derivativesAny, Q.ded.toolAny];
 const REUSABLE_TOP = [Q.bus.abn, Q.bus.name, Q.cgt.platforms, Q.cgt.priorLossesOrigin, Q.cgt.priorLossesCorrection];
-const REUSABLE_GROUPS: Record<string, { fields: string[]; match: string[] }> = {
+const REUSABLE_GROUPS: Record<string, { fields: string[]; match: string[]; facts?: string[] }> = {
+  // PHI: insurer and membership are reusable; last year's spouse election is only offered for confirmation.
+  // Premiums, rebate received, statement lines, coverage, tiers and spouse consent are never carried.
+  [GROUPS.phiPolicy]: { fields: ['phi.policy.insurer', Q.phi.policyMembership], match: [Q.phi.policyMembership, 'phi.policy.insurer'], facts: [Q.phi.policyElection] },
   [GROUPS.employer]: { fields: [Q.emp.name, Q.emp.abn, Q.emp.occupation, Q.emp.otherTags], match: [Q.emp.abn, Q.emp.name] },
   [GROUPS.rentalProperty]: { fields: [Q.rent.address, Q.rent.ownershipPct], match: [Q.rent.address] },
   [GROUPS.businessActivity]: { fields: [Q.bus.activityName, Q.bus.activityKind, Q.bus.activityAbn], match: [Q.bus.activityAbn, Q.bus.activityName] },
@@ -139,6 +142,10 @@ export function buildPrefillPreview(src: PrefillSource, tgt: PrefillTarget): Pre
       for (const f of spec.fields) {
         const v = answered(f, it.id);
         if (v !== undefined) push({ questionId: f, category: 'reusable', value: v, groupId, sourceItemId: it.id, itemLabel: label, targetItemId: target });
+      }
+      for (const f of spec.facts ?? []) {
+        const v = answered(f, it.id);
+        if (v !== undefined) push({ questionId: f, category: 'annual_fact', value: v, groupId, sourceItemId: it.id, itemLabel: label, targetItemId: target });
       }
     }
   }

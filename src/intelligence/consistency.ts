@@ -207,4 +207,42 @@ export const POSSIBLE_DUPLICATE: FlagRule = perInstance(
   },
 );
 
-export const CONSISTENCY_RULES: FlagRule[] = [POSSIBLE_DUPLICATE, EXPENSE_REIMBURSED, CAR_HOME_TO_WORK, LICENCE_FIRST, RENTAL_INITIAL_REPAIRS, PRIOR_LOSS_CLASSIFICATION, DERIVATIVES_CLASSIFY, DERIVATIVES_BUSINESS_MISSING];
+const PHI_ATO = 'https://www.ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/private-health-insurance-rebate/claiming-the-private-health-insurance-rebate';
+
+/**
+ * Spouse PHI elections that do not fit together. Linked profiles (same account, same year, same
+ * membership number) are checked directly; the same policy entered twice in one case is flagged.
+ * A share must be claimed in exactly one return.
+ */
+export const PHI_ELECTION_CONFLICT: FlagRule = perInstance(
+  { code: 'PHI_ELECTION_CONFLICT', kind: 'consistency', severity: 'warning', atoRef: PHI_ATO },
+  (a, ctx): FlagInstance[] => {
+    const out: FlagInstance[] = [];
+    const norm = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, '').toUpperCase() : '');
+    const seen = new Map<string, string>();
+    for (const it of a.items(GROUPS.phiPolicy)) {
+      const m = norm(a.string(Q.phi.policyMembership, it.id));
+      if (!m) continue;
+      const mine = a.string(Q.phi.policyElection, it.id);
+      const prev = seen.get(m);
+      if (prev) out.push({ questionIds: [answerKey(Q.phi.policyMembership, prev), answerKey(Q.phi.policyMembership, it.id)], message: `Policy ${m} is entered twice in this return. Enter each statement line once; your spouse\'s lines go in the same policy entry only when you claim both shares.` });
+      else seen.set(m, it.id);
+      for (const other of (ctx.linkedPhi ?? []).filter((o) => norm(o.membership) === m)) {
+        const theirs = other.election;
+        const conflict =
+          (mine === 'both_shares' && (theirs === 'my_share' || theirs === 'both_shares')) ||
+          (mine === 'my_share' && (theirs === 'both_shares' || theirs === 'spouse_claims_mine')) ||
+          (mine === 'spouse_claims_mine' && theirs !== 'both_shares');
+        if (conflict) {
+          out.push({
+            questionIds: [answerKey(Q.phi.policyElection, it.id)],
+            message: `Private health policy ${m}: this return says "${mine?.replace(/_/g, ' ') ?? 'not chosen'}", but ${other.profileName}'s return says "${theirs?.replace(/_/g, ' ') ?? 'not chosen'}". The choices must match so each share is claimed exactly once.`,
+          });
+        }
+      }
+    }
+    return out;
+  },
+);
+
+export const CONSISTENCY_RULES: FlagRule[] = [POSSIBLE_DUPLICATE, PHI_ELECTION_CONFLICT, EXPENSE_REIMBURSED, CAR_HOME_TO_WORK, LICENCE_FIRST, RENTAL_INITIAL_REPAIRS, PRIOR_LOSS_CLASSIFICATION, DERIVATIVES_CLASSIFY, DERIVATIVES_BUSINESS_MISSING];

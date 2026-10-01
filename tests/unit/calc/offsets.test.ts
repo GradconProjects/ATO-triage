@@ -94,10 +94,9 @@ describe('private health rebate reconciliation', () => {
     expect(est.totals.refundableOffsetsCents).toBeGreaterThan(0);
     expect(est.totals.resultCents).toBe(c(100) + est.totals.refundableOffsetsCents! - est.totals.medicareLevyCents);
   });
-  it('tier not sure -> review', () => {
-    const est = run([a(Q.emp.gross, c(60000), 'e1'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(500), 'p1'), notSure(Q.phi.policyTier, 'p1')], { items });
-    expect(lineById(est, 'offset.phi@p1').status).toBe('manual_review');
-    expect(est.moduleStatus['phi_rebate']).toBe('manual_review');
+  it('the insurer\'s chosen tier does not decide the entitlement (income tier does)', () => {
+    const est = run([a(Q.emp.gross, c(60000), 'e1'), a(Q.phi.cover, 'whole_year'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(500), 'p1'), notSure(Q.phi.policyTier, 'p1')], { items });
+    expect(lineById(est, 'offset.phi@p1').status).toBe('computed');
   });
   it('high income tier 3 -> no entitlement, full rebate is a liability', () => {
     const est = run([a(Q.emp.gross, c(200000), 'e1'), a(Q.phi.cover, 'whole_year'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(500), 'p1'), a(Q.phi.policyTier, 'base', 'p1')], { items });

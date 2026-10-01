@@ -20,8 +20,12 @@ export function familyInfo(cx: CalcContext): FamilyInfo {
   const hasSpouse = spouse === 'all_year' || spouse === 'part_year';
   const children = Math.max(0, Math.trunc(cx.a.number(Q.fam.dependantsCount) ?? 0));
   const spouseTaxable = hasSpouse ? cx.a.cents(Q.fam.spouseTaxableIncome) : undefined;
+  // A spouse's fringe benefits or reportable super answered "not sure" leaves their income for
+  // surcharge purposes unknown (never treated as nil). Left blank (not asked yet) counts as none.
+  const rfbUnknown = cx.a.isNotSure(Q.fam.spouseRfb);
+  const rscUnknown = cx.a.isNotSure(Q.fam.spouseRsc);
   const spouseMls =
-    spouseTaxable === undefined ? undefined : spouseTaxable + (cx.a.cents(Q.fam.spouseRfb) ?? 0) + (cx.a.cents(Q.fam.spouseRsc) ?? 0);
+    spouseTaxable === undefined || rfbUnknown || rscUnknown ? undefined : spouseTaxable + (cx.a.cents(Q.fam.spouseRfb) ?? 0) + (cx.a.cents(Q.fam.spouseRsc) ?? 0);
   return { isFamily: hasSpouse || children > 0, hasSpouse, children, spouseMlsIncomeCents: spouseMls, spouseTaxableCents: spouseTaxable };
 }
 

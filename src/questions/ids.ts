@@ -42,7 +42,29 @@ export const Q = {
     policyRepeater: 'phi.policy',       // repeater group 'phi_policy'
     policyPremiums: 'phi.policy.premiums', // money (in group)
     policyRebate: 'phi.policy.rebate_received', // money (in group)
-    policyTier: 'phi.policy.tier',      // single: base | tier1 | tier2 | tier3 | not_sure
+    policyTier: 'phi.policy.tier',      // single: base | tier1 | tier2 | tier3 | not_sure (insurer's tier; informational)
+    // Statement-based entry (per policy): two statement lines, before and from 1 April.
+    policyMembership: 'phi.policy.membership', // text: membership number (identifies the policy across spouses)
+    policySource: 'phi.policy.source',         // single: statement | own_figures | not_sure
+    policyJ1: 'phi.policy.j1',                 // money: premiums eligible (label J), 1 Jul - 31 Mar line
+    policyK1: 'phi.policy.k1',                 // money: rebate received (label K), 1 Jul - 31 Mar line
+    policyL1: 'phi.policy.l1',                 // single: benefit code 30 | 35 | 40
+    policyJ2: 'phi.policy.j2',                 // money: premiums eligible, 1 Apr - 30 Jun line
+    policyK2: 'phi.policy.k2',                 // money: rebate received, 1 Apr - 30 Jun line
+    policyL2: 'phi.policy.l2',                 // single: benefit code 31 | 36 | 41
+    policyCoveredAs: 'phi.policy.covered_as',  // single: adult | dependant | not_sure (dependant -> no rebate, code F)
+    policyElection: 'phi.policy.election',     // single: my_share | both_shares | spouse_claims_mine | not_sure
+    policySpouseShare: 'phi.policy.spouse_share', // yes_no_unsure: the ATO conditions for claiming the spouse's share are all met
+    policySpouseConfirmed: 'phi.policy.spouse_confirmed', // yes_no_unsure: the spouse has confirmed their matching election
+    // The spouse's own statement lines (only when claiming both shares): never assumed equal to yours.
+    policySpouseJ1: 'phi.policy.spouse_j1', policySpouseK1: 'phi.policy.spouse_k1', policySpouseL1: 'phi.policy.spouse_l1',
+    policySpouseJ2: 'phi.policy.spouse_j2', policySpouseK2: 'phi.policy.spouse_k2', policySpouseL2: 'phi.policy.spouse_l2',
+    policyAmountBasis: 'phi.policy.amount_basis', // single: full_policy | my_share | not_sure (own figures only)
+    // Own-figures entry (no statement): converted to the taxpayer's share.
+    policyAdults: 'phi.policy.adults',         // number: adults covered by the policy
+    policyLhc: 'phi.policy.lhc',               // money: lifetime health cover loading included in the premiums
+    policyAge: 'phi.policy.age',               // single: under65 | 65_69 | 70plus | not_sure (oldest person covered)
+    policyRebateConfirmed: 'phi.policy.rebate_confirmed', // yes_no_unsure: rebate received really was $0 (paid full price)
   },
   // M4 employment (group 'employer')
   emp: {

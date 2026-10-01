@@ -17,6 +17,8 @@ export interface CaseState {
   visible: VisibleQuestion[];
   visibleKeys: Set<string>;
   progress: Progress;
+  /** PHI elections in linked profiles (same account, same year), for conflict checks. */
+  linkedPhi?: { profileName: string; membership: string; election: string | undefined }[];
 }
 
 export function buildCaseState(caseRow: CaseRow, profile: ProfileRow, answers: AnswerRecord[], items: RepeaterItem[]): CaseState {
@@ -46,7 +48,30 @@ export async function loadCaseState(db: SupabaseClient, ownerId: string, caseId:
     items = state.items;
     state = buildCaseState(caseRow, profile, answers, items);
   }
+  state.linkedPhi = await loadLinkedPhi(db, caseRow).catch(() => []);
   return state;
+}
+
+/** Membership numbers and elections from the account's other profiles for the same year. */
+async function loadLinkedPhi(db: SupabaseClient, caseRow: CaseRow): Promise<NonNullable<CaseState['linkedPhi']>> {
+  const others = await db.from('fy_cases').select('id, profile_id, profiles(display_name)').eq('owner_id', caseRow.owner_id).eq('financial_year', caseRow.financial_year).neq('id', caseRow.id);
+  const rows = (others.data ?? []) as unknown as { id: string; profile_id: string; profiles: { display_name: string } | null }[];
+  const sameProfile = rows.filter((r) => r.profile_id !== caseRow.profile_id);
+  if (!sameProfile.length) return [];
+  const ans = await db.from('answers').select('case_id, question_id, repeater_item_id, value, state, version').in('case_id', sameProfile.map((r) => r.id)).in('question_id', ['phi.policy.membership', 'phi.policy.election']);
+  const latest = new Map<string, { case_id: string; question_id: string; repeater_item_id: string | null; value: unknown; state: string; version: number }>();
+  for (const r of (ans.data ?? []) as { case_id: string; question_id: string; repeater_item_id: string | null; value: unknown; state: string; version: number }[]) {
+    const k = `${r.case_id}|${r.question_id}|${r.repeater_item_id}`;
+    if (!latest.has(k) || latest.get(k)!.version < r.version) latest.set(k, r);
+  }
+  const out: NonNullable<CaseState['linkedPhi']> = [];
+  for (const r of latest.values()) {
+    if (r.question_id !== 'phi.policy.membership' || r.state !== 'answered' || typeof r.value !== 'string') continue;
+    const el = latest.get(`${r.case_id}|phi.policy.election|${r.repeater_item_id}`);
+    const name = sameProfile.find((x) => x.id === r.case_id)?.profiles?.display_name ?? 'another profile';
+    out.push({ profileName: name, membership: r.value, election: el?.state === 'answered' && typeof el.value === 'string' ? el.value : undefined });
+  }
+  return out;
 }
 
 /** Serializable subset sent to the client. */

@@ -26,7 +26,7 @@ export function runCalculation(state: CaseState): CalcRun {
     rulesFor: (fy: string) => (RULE_SETS as Record<string, ReturnType<typeof getRuleSet> | undefined>)[fy],
   };
   const estimate = calculate(input);
-  const intelligence = runIntelligence({ ...input, visibleQuestions: state.visible }, estimate, (i) => calculate(i));
+  const intelligence = runIntelligence({ ...input, visibleQuestions: state.visible, ...(state.linkedPhi ? { linkedPhi: state.linkedPhi } : {}) }, estimate, (i) => calculate(i));
   if (intelligence.range) estimate.range = intelligence.range;
   return { estimate, intelligence, input };
 }

@@ -25,7 +25,16 @@ export interface Flag {
 }
 
 /** Everything a rule may look at. `answers` only contains records for VISIBLE questions. */
+/** Another profile in the same account with a case for the same year that names the same PHI policy. */
+export interface LinkedPhiElection {
+  profileName: string;
+  membership: string;
+  election: string | undefined;
+}
+
 export interface IntelligenceContext {
+  /** PHI elections recorded in linked profiles (same account, same year), for conflict checks. */
+  linkedPhi?: LinkedPhiElection[];
   answers: AnswerView;
   estimate: Estimate;
   visible: Set<string>;

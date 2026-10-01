@@ -14,9 +14,9 @@ import { finaliseCheck } from './gate';
 import { visibleAnswers } from './helpers';
 import { rangeEstimate } from './range';
 import { completenessFrom, confidence } from './scoring';
-import type { IntelligenceContext, IntelligenceResult } from './types';
+import type { IntelligenceContext, IntelligenceResult, LinkedPhiElection } from './types';
 
-export type IntelligenceInput = CalcInput & { visibleQuestions?: VisibleQuestion[] };
+export type IntelligenceInput = CalcInput & { visibleQuestions?: VisibleQuestion[]; linkedPhi?: LinkedPhiElection[] };
 
 /** Rebuild the engine's visible list from the `visible` key set when the caller did not pass one. */
 export function visibleQuestionsFromKeys(input: CalcInput): VisibleQuestion[] {
@@ -35,6 +35,7 @@ export function visibleQuestionsFromKeys(input: CalcInput): VisibleQuestion[] {
 export function runIntelligence(input: IntelligenceInput, estimate: Estimate, recalc?: (input: CalcInput) => Estimate): IntelligenceResult {
   const answers = visibleAnswers(input.answers, input.visible);
   const ctx: IntelligenceContext = {
+    ...(input.linkedPhi ? { linkedPhi: input.linkedPhi } : {}),
     answers,
     estimate,
     visible: input.visible,
@@ -50,6 +51,7 @@ export function runIntelligence(input: IntelligenceInput, estimate: Estimate, re
   const conf = confidence(estimate, flags, completeness);
   const calcInput: CalcInput = { ...input };
   delete (calcInput as { visibleQuestions?: unknown }).visibleQuestions;
+  delete (calcInput as { linkedPhi?: unknown }).linkedPhi;
   const range = rangeEstimate(calcInput, estimate, recalc);
   const gate = finaliseCheck({ answers, questions: input.questions, flags, incomeModulesPct: completeness.incomeModulesPct });
 
