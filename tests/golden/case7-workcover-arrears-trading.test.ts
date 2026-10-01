@@ -120,6 +120,13 @@ describe('golden 7: WorkCover arrears, trading activity, derivative capital loss
   it('not knowing whether the gross includes the arrears is review, not a guess', () => {
     const { estimate } = run([{ ...a(Q.comp.weeklyIncludesArrears, 'not_sure'), state: 'not_sure' }]);
     expect(estimate.manualReview.some((r) => r.questionIds.includes(Q.comp.weeklyIncludesArrears))).toBe(true);
+    // Only the possible overlap is held back: the rest of the weekly gross is still income.
+    expect(estimate.totals.assessableIncomeCents).toBe(c(46522.03 + 186754));
+    expect(lineById(estimate, `income.${Q.comp.weeklyAmount}.overlap`).amountCents).toBe(c(58753));
+  });
+  it('left unanswered, the weekly gross still counts (never dropped whole)', () => {
+    const { estimate } = runGolden({ fy: '2025-26', items: ITEMS, answers: ANSWERS.filter((x) => x.id !== Q.comp.weeklyIncludesArrears), profileOccupations: ['disability_support_worker'] });
+    expect(estimate.totals.assessableIncomeCents).toBe(c(46522.03 + 186754));
   });
   it('LSPIA is provisional and uses each accrual year\'s own rule table', () => {
     const l = lineById(est, 'offset.lspia');

@@ -38,8 +38,10 @@ describe('WorkCover gross that may include the arrears', () => {
     const est = run([...base, a(Q.comp.weeklyIncludesArrears, 'no')]);
     expect(est.totals.assessableIncomeCents).toBe(c(186754 + 58753));
   });
-  it('holds the weekly payments for review when the overlap is unknown', () => {
+  it('holds only the possible overlap for review when it is unknown', () => {
     const est = run(base);
-    expect(lineById(est, `income.${Q.comp.weeklyAmount}`).status).toBe('manual_review');
+    expect(lineById(est, `income.${Q.comp.weeklyAmount}`).status).toBe('computed');
+    expect(lineById(est, `income.${Q.comp.weeklyAmount}.overlap`).status).toBe('manual_review');
+    expect(est.totals.assessableIncomeCents).toBe(c(186754));
   });
 });

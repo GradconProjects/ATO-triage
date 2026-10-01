@@ -170,8 +170,11 @@ export function computeIncome(cx: CalcContext): IncomeResult {
       const inputs = [Q.comp.weeklyAmount, ...(arrears !== undefined ? [Q.comp.weeklyIncludesArrears] : [])];
       if (arrears !== undefined && incl === 'yes') {
         add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (excluding the arrears)', cents: weekly - arrears, category: 'compensation', inputs, formula: `gross ${weekly / 100} includes arrears ${arrears / 100}: ${weekly / 100} - ${arrears / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
-      } else if (arrears !== undefined && incl !== 'no') {
-        add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (may already include the arrears)', cents: weekly, category: 'compensation', inputs, formula: `${weekly / 100} (overlap with arrears ${arrears / 100} not confirmed)`, ruleId: `${fy}.income.compensation`, treatment: 'R', key: Q.comp.weeklyAmount, note: 'Confirm whether the gross includes the lump sum E arrears, so they are not counted twice.' });
+      } else if (arrears !== undefined && incl !== 'no' && weekly >= arrears) {
+        // Not confirmed: the part of the gross that is income either way is counted; only the
+        // possible overlap with the arrears (already counted on its own line) is held for review.
+        add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (excluding a possible overlap with the arrears)', cents: weekly - arrears, category: 'compensation', inputs, formula: `gross ${weekly / 100} - possible arrears overlap ${arrears / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
+        add({ idPrefix: `income.${Q.comp.weeklyAmount}.overlap`, itemId: null, label: 'WorkCover weekly payments: possible double count of the arrears', cents: arrears, category: 'compensation', inputs: [Q.comp.weeklyIncludesArrears, Q.comp.arrearsAmount], formula: `${arrears / 100} counted in income only if the gross does not already include the arrears`, ruleId: `${fy}.income.compensation`, treatment: 'R', key: Q.comp.weeklyIncludesArrears, note: 'Confirm whether the weekly gross already includes the lump sum E arrears. If it does not, this amount is also income.' });
       } else {
         add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments', cents: weekly, category: 'compensation', inputs, formula: `WorkCover weekly payments ${weekly / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
       }
