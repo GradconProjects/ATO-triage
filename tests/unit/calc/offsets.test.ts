@@ -72,17 +72,27 @@ describe('FITO', () => {
 describe('private health rebate reconciliation', () => {
   const policy = (received: number, tier = 'base') => [a(Q.emp.gross, c(60000), 'e1'), a(Q.phi.cover, 'whole_year'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(received), 'p1'), a(Q.phi.policyTier, tier, 'p1')];
   const items = [item('p1', 'phi_policy')];
-  it('rebate received above entitlement -> liability added to tax', () => {
+  it('rebate received above entitlement -> recovered as a separate liability', () => {
     // entitled = 2,000 x (24.608 x 9 + 24.288 x 3) / 12 % = 2,000 x 24.528% = 490.56
     const est = run(policy(500), { items });
     expect(lineById(est, 'offset.phi@p1').amountCents).toBe(-944);
     expect(est.totals.phiLiabilityCents).toBe(944);
-    expect(est.totals.taxAfterOffsetsCents).toBe(est.totals.grossTaxCents - est.totals.offsetsCents + 944);
+    expect(est.totals.taxAfterOffsetsCents).toBe(est.totals.grossTaxCents - est.totals.offsetsCents);
+    expect(lineById(est, 'offset.phi@p1').section).toBe('phi_recovery');
   });
-  it('rebate received below entitlement -> offset', () => {
+  it('rebate received below entitlement -> refundable offset, kept apart from non-refundable offsets', () => {
     const est = run(policy(400), { items });
     expect(lineById(est, 'offset.phi@p1').amountCents).toBe(9056);
+    expect(lineById(est, 'offset.phi@p1').section).toBe('refundable_offsets');
     expect(est.totals.phiLiabilityCents).toBe(0);
+    expect(est.totals.refundableOffsetsCents).toBe(9056);
+  });
+  it('an additional rebate is paid in full even when income tax is nil', () => {
+    const low = [a(Q.emp.gross, c(15000), 'e1'), a(Q.emp.withheld, c(100), 'e1'), a(Q.phi.cover, 'whole_year'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(0), 'p1'), a(Q.phi.policyTier, 'base', 'p1')];
+    const est = run(low, { items });
+    expect(est.totals.grossTaxCents).toBe(0);
+    expect(est.totals.refundableOffsetsCents).toBeGreaterThan(0);
+    expect(est.totals.resultCents).toBe(c(100) + est.totals.refundableOffsetsCents! - est.totals.medicareLevyCents);
   });
   it('tier not sure -> review', () => {
     const est = run([a(Q.emp.gross, c(60000), 'e1'), a(Q.phi.policyPremiums, c(2000), 'p1'), a(Q.phi.policyRebate, c(500), 'p1'), notSure(Q.phi.policyTier, 'p1')], { items });
@@ -110,15 +120,21 @@ describe('LSPIA', () => {
     const est = run([a(Q.comp.weeklyAmount, c(40000)), a(Q.comp.arrearsAmount, c(14000)), a(Q.comp.lseAmount, c(14000), 'y1')], { items: [years[0]!] });
     expect(lineById(est, 'offset.lspia').status).toBe('manual_review');
   });
-  it('offset = extra tax this year - notional tax in the accrual years', () => {
-    const est = run(arrears(40000), { items: years, rulesFor: (fy) => (fy === '2023-24' ? RULES : undefined) });
+  it('offset = extra tax this year - notional tax in the accrual years, using each year\'s own rules (provisional estimate)', () => {
+    const est = run(arrears(40000), { items: years, rulesFor: (fy) => (fy === '2023-24' || fy === '2022-23' ? RULES : undefined) });
     // taxable 54,000: tax 6,988 - tax(40,000) 3,488 = 3,500; notional 1,280 + 960 = 2,240 -> 1,260
-    expect(lineById(est, 'offset.lspia').amountCents).toBe(c(1260));
-    expect(est.assumptions.some((s) => s.includes('no rule table for 2022-23'))).toBe(true);
-    expect(est.moduleStatus['lspia']).toBe('computed');
+    const l = lineById(est, 'offset.lspia');
+    expect(l.amountCents).toBe(c(1260));
+    expect(l.provisional).toBe(true);
+    expect(est.manualReview.some((r) => r.module === 'lspia' && r.reason.includes('not the statutory figure'))).toBe(true);
+  });
+  it('never substitutes current-year rules for a missing historical year', () => {
+    const est = run(arrears(40000), { items: years, rulesFor: (fy) => (fy === '2023-24' ? RULES : undefined) });
+    expect(lineById(est, 'offset.lspia').status).toBe('manual_review');
+    expect(lineById(est, 'offset.lspia').note).toContain('2022-23');
   });
   it('floors at zero when the arrears would have been taxed the same', () => {
-    expect(lineById(run(arrears(30000), { items: years }), 'offset.lspia').amountCents).toBe(0);
+    expect(lineById(run(arrears(30000), { items: years, rulesFor: () => RULES }), 'offset.lspia').amountCents).toBe(0);
   });
   it('arrears accrued within 12 months -> review', () => {
     const est = run([...arrears(40000).filter((x) => !(x.id === Q.comp.lseOver12m && x.item === 'y2')), a(Q.comp.lseOver12m, 'no', 'y2')], { items: years });

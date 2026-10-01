@@ -8,6 +8,8 @@ export type EstimateSection =
   | 'taxable_income'
   | 'gross_tax'
   | 'offsets'
+  | 'refundable_offsets'
+  | 'phi_recovery'
   | 'medicare'
   | 'mls'
   | 'study_loan'
@@ -38,6 +40,8 @@ export interface EstimateLine {
   detail?: Record<string, string | number | boolean | null | undefined>;
   /** True for a component line that explains a figure already counted by another line (never summed). */
   informational?: boolean;
+  /** Included in the estimate, but only provisionally (an app estimate or unconfirmed input). */
+  provisional?: boolean;
 }
 
 export interface ManualReviewItem {
@@ -68,6 +72,11 @@ export interface EstimateTotals {
   workRelatedDeductionsCents: number;
   /** Private health insurance rebate liability added to tax (rebate received above entitlement). */
   phiLiabilityCents: number;
+  /**
+   * Refundable offsets (e.g. an additional private health rebate owed to you). Never capped at
+   * income tax: paid out even when tax is nil. Optional so older stored estimates still load.
+   */
+  refundableOffsetsCents?: number;
 }
 
 export interface Estimate {

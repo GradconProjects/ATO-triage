@@ -14,7 +14,7 @@ import { computeGrossTax, residencyKind } from './modules/tax-scale';
 import { computeLito } from './modules/lito';
 import { computeSapto } from './modules/sapto';
 import { computeOtherOffsets } from './modules/offsets';
-import { computeLspia } from './modules/lspia';
+import { collectArrears, computeLspia } from './modules/lspia';
 import { computeMedicare } from './modules/medicare';
 import { computeMls } from './modules/mls';
 import { computeStudyLoan } from './modules/study-debt';
@@ -69,13 +69,17 @@ export function calculate(input: CalcInput): Estimate {
   const saptoAmt = computeSapto(cx, taxable, income.rfbCents, income.rescCents);
   const other = computeOtherOffsets(cx, { taxableCents: taxable, grossTaxCents: gross.grossTaxCents, foreignIncomeCents: income.foreignIncomeCents, rfbCents: income.rfbCents, rescCents: income.rescCents });
   const lspiaAmt = computeLspia(cx, { taxableCents: taxable, lumpSumECents: income.lumpSumECents });
+  // Non-refundable offsets reduce income tax only (never the Medicare levy) and cannot go below nil.
+  // Refundable offsets are kept apart and are paid out in full even when income tax is nil.
   const offsetsRaw = litoAmt + saptoAmt + other.offsetsCents + lspiaAmt;
   const offsets = Math.min(offsetsRaw, gross.grossTaxCents);
-  if (offsetsRaw > gross.grossTaxCents) cx.assume(`Non-refundable offsets (${offsetsRaw / 100}) exceed gross tax; capped at ${gross.grossTaxCents / 100}.`);
-  const taxAfterOffsets = gross.grossTaxCents - offsets + other.phiLiabilityCents;
+  if (offsetsRaw > gross.grossTaxCents) cx.assume(`Non-refundable offsets (${offsetsRaw / 100}) exceed gross tax; only ${gross.grossTaxCents / 100} can be used and the rest is lost (non-refundable offsets are not paid out).`);
+  const taxAfterOffsets = gross.grossTaxCents - offsets;
+  const refundableOffsets = other.refundableCents;
+  const phiRecovery = other.phiLiabilityCents;
 
   // 6. Medicare levy and surcharge.
-  const medicare = computeMedicare(cx, taxable);
+  const medicare = computeMedicare(cx, taxable, collectArrears(cx, income.lumpSumECents));
   const mls = computeMls(cx, taxable, income.rfbCents, income.rescCents, medicare.exempt);
 
   // 7. Study loan.
@@ -85,8 +89,8 @@ export function calculate(input: CalcInput): Estimate {
   const credits = computeCredits(cx);
 
   // 9. Result.
-  const result = credits - (taxAfterOffsets + medicare.levyCents + mls + study);
-  cx.lines.computed({ id: 'result', section: 'result', label: result >= 0 ? 'Estimated refund' : 'Estimated amount owing', amountCents: result, ruleId: `${cx.rules.fy}.result`, inputs: [], formula: `credits ${credits / 100} - (tax after offsets ${taxAfterOffsets / 100} + Medicare ${medicare.levyCents / 100} + MLS ${mls / 100} + study loan ${study / 100})` });
+  const result = credits + refundableOffsets - (taxAfterOffsets + phiRecovery + medicare.levyCents + mls + study);
+  cx.lines.computed({ id: 'result', section: 'result', label: result >= 0 ? 'Estimated refund' : 'Estimated amount owing', amountCents: result, ruleId: `${cx.rules.fy}.result`, inputs: [], formula: `credits ${credits / 100} + refundable offsets ${refundableOffsets / 100} - (tax after non-refundable offsets ${taxAfterOffsets / 100} + private health rebate recovered ${phiRecovery / 100} + Medicare ${medicare.levyCents / 100} + MLS ${mls / 100} + study loan ${study / 100})` });
 
   const totals: EstimateTotals = {
     assessableIncomeCents: assessable,
@@ -103,7 +107,8 @@ export function calculate(input: CalcInput): Estimate {
     carriedForwardLossCents: carriedForwardLoss,
     capitalLossCarriedForwardCents: cgt.capitalLossCarriedForwardCents,
     workRelatedDeductionsCents: workRelated,
-    phiLiabilityCents: other.phiLiabilityCents,
+    phiLiabilityCents: phiRecovery,
+    refundableOffsetsCents: refundableOffsets,
   };
 
   // Anything answered "not sure" among the calc's key gate questions is uncertain for the range.

@@ -2,7 +2,7 @@ import { calculate } from '@/src/calc';
 import type { CalcInput, Estimate } from '@/src/calc/types';
 import { runIntelligence } from '@/src/intelligence';
 import type { IntelligenceResult } from '@/src/intelligence/types';
-import { getRuleSet } from '@/src/rules';
+import { RULE_SETS, getRuleSet } from '@/src/rules';
 import { QUESTION_BANK } from '@/src/questions';
 import type { CaseState } from './case-state';
 
@@ -22,6 +22,8 @@ export function runCalculation(state: CaseState): CalcRun {
     ctx: state.ctx,
     activeTags: state.activeTags,
     visible: state.visibleKeys,
+    // Historical rule tables for back-dated calculations (arrears). Missing years stay missing.
+    rulesFor: (fy: string) => (RULE_SETS as Record<string, ReturnType<typeof getRuleSet> | undefined>)[fy],
   };
   const estimate = calculate(input);
   const intelligence = runIntelligence({ ...input, visibleQuestions: state.visible }, estimate, (i) => calculate(i));

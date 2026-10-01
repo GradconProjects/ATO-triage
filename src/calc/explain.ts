@@ -19,6 +19,7 @@ export interface LineInit {
   itemId?: string | null;
   detail?: EstimateLine['detail'];
   informational?: boolean;
+  provisional?: boolean;
 }
 
 /** Build one line with defaults (status computed, no inputs). */
@@ -38,6 +39,7 @@ export function line(init: LineInit): EstimateLine {
   if (init.itemId !== undefined) out.itemId = init.itemId;
   if (init.detail !== undefined) out.detail = init.detail;
   if (init.informational) out.informational = true;
+  if (init.provisional) out.provisional = true;
   return out;
 }
 

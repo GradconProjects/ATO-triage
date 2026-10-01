@@ -8,15 +8,13 @@
  *   income       30,000 weekly + 14,000 arrears                          = 44,000.00 (impairment excluded -> review)
  *   gross tax    0.16 x (44,000 - 18,200)                                =  4,128.00
  *   LITO         700 - 0.05 x (44,000 - 37,500)                          =    375.00
- *   LSPIA        tax now with arrears - tax without = 4,128 - 0.16 x 11,800 (1,888) = 2,240.00
- *                notional: 2022-23 tax(18,000) - tax(10,000) = 0 (no 2022-23 table: 2024-25 scale used, noted);
- *                          2023-24 tax(18,000) - tax(12,000) = 0 (2023-24 table, threshold 18,200)
- *                offset = 2,240 - 0                                      =  2,240.00
- *   offsets      375 + 2,240 = 2,615 (< gross tax 4,128)
- *   tax after    4,128 - 2,615                                           =  1,513.00
- *   Medicare     0.02 x 44,000                                           =    880.00
+ *   LSPIA        manual review: one accrual year (2022-23) has no verified rule table, and the current year's
+ *                rules are never substituted for a missing historical year -> offset not computed (0 in the estimate)
+ *   offsets      375 (LITO)
+ *   tax after    4,128 - 375                                             =  3,753.00
+ *   Medicare     0.02 x 44,000 = 880.00; the s 9A arrears exemption cannot be tested without 2022-23 rules (review)
  *   MLS          44,000 < 97,000                                         =      0
- *   result       5,000 - (1,513 + 880)                                   =  2,607.00 refund
+ *   result       5,000 - (3,753 + 880)                                   =    367.00 refund (before any LSPIA offset)
  */
 import { describe, expect, it } from 'vitest';
 import { Q } from '@/src/questions/ids';
@@ -97,25 +95,22 @@ describe('golden 4: WorkCover recipient 2024-25', () => {
     expect(est.uncertainInputs).toContain(Q.comp.impairmentAmount);
     expect(est.moduleStatus['income']).toBe('manual_review');
   });
-  it('LSPIA offset = 2,240.00 with the earlier years notional tax of nil', () => {
+  it('LSPIA goes to review instead of borrowing current-year rules for 2022-23', () => {
     const l = lineById(est, 'offset.lspia');
-    expect(l.status).toBe('computed');
-    expect(l.amountCents).toBe(c(2240));
-    expect(l.detail?.['currentYearExtraTaxCents']).toBe(c(2240));
-    expect(l.detail?.['notionalTaxCents']).toBe(0);
-    expect(est.assumptions.some((s) => s.includes('no rule table for 2022-23'))).toBe(true);
-    expect(est.moduleStatus['lspia']).toBe('computed');
+    expect(l.status).toBe('manual_review');
+    expect(l.note).toContain('2022-23');
+    expect(est.moduleStatus['lspia']).toBe('manual_review');
   });
   it('totals', () => {
     expect(est.totals.taxableIncomeCents).toBe(c(44000));
     expect(lineById(est, 'tax.gross').amountCents).toBe(c(4128));
     expect(lineById(est, 'offset.lito').amountCents).toBe(c(375));
-    expect(est.totals.offsetsCents).toBe(c(2615));
-    expect(est.totals.taxAfterOffsetsCents).toBe(c(1513));
+    expect(est.totals.offsetsCents).toBe(c(375));
+    expect(est.totals.taxAfterOffsetsCents).toBe(c(3753));
     expect(lineById(est, 'medicare.levy').amountCents).toBe(c(880));
     expect(est.totals.mlsCents).toBe(0);
     expect(est.totals.creditsCents).toBe(c(5000));
     expect(lineById(est, `credit.${Q.comp.weeklyWithheld}`).amountCents).toBe(c(5000));
-    expect(est.totals.resultCents).toBe(c(2607));
+    expect(est.totals.resultCents).toBe(c(367));
   });
 });

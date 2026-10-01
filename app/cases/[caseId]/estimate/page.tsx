@@ -19,13 +19,15 @@ const SECTION_LABELS: Record<EstimateSection, string> = {
   taxable_income: 'Taxable income',
   gross_tax: 'Gross tax',
   offsets: 'Non-refundable offsets',
+  refundable_offsets: 'Refundable offsets',
+  phi_recovery: 'Private health rebate recovered',
   medicare: 'Medicare levy',
   mls: 'Medicare levy surcharge',
   study_loan: 'Study and training loan repayment',
   credits: 'Credits and tax already paid',
   result: 'Result',
 };
-const SECTION_ORDER: EstimateSection[] = ['income', 'deductions', 'taxable_income', 'gross_tax', 'offsets', 'medicare', 'mls', 'study_loan', 'credits', 'result'];
+const SECTION_ORDER: EstimateSection[] = ['income', 'deductions', 'taxable_income', 'gross_tax', 'offsets', 'phi_recovery', 'medicare', 'mls', 'study_loan', 'refundable_offsets', 'credits', 'result'];
 
 export default async function EstimatePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = await params;
@@ -85,7 +87,8 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
         </div>
         <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
           <li>Taxable income: <strong>{formatMoney(t.taxableIncomeCents)}</strong></li>
-          <li>Tax and levies: <strong>{formatMoney(t.taxAfterOffsetsCents + t.medicareLevyCents + t.mlsCents + t.studyLoanCents)}</strong></li>
+          <li>Tax and levies: <strong>{formatMoney(t.taxAfterOffsetsCents + (t.phiLiabilityCents ?? 0) + t.medicareLevyCents + t.mlsCents + t.studyLoanCents)}</strong></li>
+          {t.refundableOffsetsCents ? <li>Refundable offsets: <strong>{formatMoney(t.refundableOffsetsCents)}</strong></li> : null}
           <li>Credits: <strong>{formatMoney(t.creditsCents)}</strong></li>
         </ul>
         {intelligence.confidence.reasons.length ? (

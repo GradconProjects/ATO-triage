@@ -13,10 +13,12 @@ export interface OffsetsInput {
 }
 
 export interface OffsetsResult {
-  /** Non-refundable offsets from this module (spouse super, FITO, PHI rebate shortfall). */
+  /** Non-refundable offsets from this module (spouse super, FITO). Capped at tax by the pipeline. */
   offsetsCents: number;
-  /** PHI rebate received above entitlement: added to tax. */
+  /** PHI rebate received above entitlement: recovered as a separate liability. */
   phiLiabilityCents: number;
+  /** Additional PHI rebate owed (received less than entitled): a REFUNDABLE offset. */
+  refundableCents: number;
 }
 
 const SPOUSE_MAX_CONTRIBUTION = 3000;
@@ -38,6 +40,7 @@ export function computeOtherOffsets(cx: CalcContext, i: OffsetsInput): OffsetsRe
   const fy = rules.fy;
   let offsets = 0;
   let phiLiability = 0;
+  let refundable = 0;
 
   // Spouse super contribution offset.
   {
@@ -126,7 +129,7 @@ export function computeOtherOffsets(cx: CalcContext, i: OffsetsInput): OffsetsRe
         cx.setStatus('phi_rebate', 'manual_review');
         cx.review('phi_rebate', 'Private health rebate tier claimed with the insurer is not sure; the rebate reconciliation cannot be done.', [Q.phi.policyTier]);
         cx.markUncertain(`${Q.phi.policyRebate}@${p.id}`);
-        cx.lines.review({ id: `offset.phi@${p.id}`, section: 'offsets', label: 'Private health insurance rebate adjustment', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'tier claimed unknown', note: 'Check the tier on the private health insurance statement.', itemId: p.id });
+        cx.lines.review({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate adjustment', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula: 'tier claimed unknown', note: 'Check the tier on the private health insurance statement.', itemId: p.id });
         continue;
       }
       const fam = familyInfo(cx);
@@ -143,18 +146,18 @@ export function computeOtherOffsets(cx: CalcContext, i: OffsetsInput): OffsetsRe
       cx.setStatus('phi_rebate', 'computed');
       const formula = `entitled ${entitled / 100} (premiums ${premiums / 100} x ${pctEntitled.toFixed(3)}% for income tier ${tier.tier}) - rebate received ${received / 100} (claimed tier ${claimedTier})`;
       if (diff > 0) {
-        offsets += diff;
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'offsets', label: 'Private health insurance rebate shortfall (offset)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
+        refundable += diff;
+        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate still owed (refundable offset)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
       } else if (diff < 0) {
         phiLiability += -diff;
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'offsets', label: 'Private health insurance rebate liability (excess rebate received)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id, note: 'Rebate received exceeds the entitlement for your income tier; the excess is added to tax.' });
+        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'phi_recovery', label: 'Private health insurance rebate recovered (excess rebate received)', amountCents: diff, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id, note: 'Rebate received exceeds the entitlement for your income tier; the excess is added to tax.' });
       } else {
-        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'offsets', label: 'Private health insurance rebate (no adjustment)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
+        cx.lines.computed({ id: `offset.phi@${p.id}`, section: 'refundable_offsets', label: 'Private health insurance rebate (no adjustment)', amountCents: 0, ruleId: `${fy}.phiRebate`, inputs, formula, itemId: p.id });
       }
     }
     if (!any && cx.moduleStatus['phi_rebate'] === undefined) cx.setStatus('phi_rebate', 'not_applicable');
   }
 
   if (cx.moduleStatus['offsets'] === undefined) cx.setStatus('offsets', 'not_applicable');
-  return { offsetsCents: offsets, phiLiabilityCents: phiLiability };
+  return { offsetsCents: offsets, phiLiabilityCents: phiLiability, refundableCents: refundable };
 }

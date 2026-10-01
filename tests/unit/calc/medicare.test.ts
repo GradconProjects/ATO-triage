@@ -61,8 +61,9 @@ describe('Medicare in the pipeline', () => {
   });
   it('family thresholds with spouse income', () => {
     const est = run([a(Q.fam.spouse, 'all_year'), a(Q.fam.spouseTaxableIncome, c(20000)), a(Q.emp.gross, c(30000), 'e1')]);
-    // family income 50,000: 10% x (50,000 - 45,907) = 409.30 < 2% x 30,000
-    expect(est.totals.medicareLevyCents).toBe(c(409.3));
+    // individual: 10% x (30,000 - 27,222) = 277.80; family 50,000: family phase-in 10% x (50,000 - 45,907) = 409.30,
+    // shared by income: 409.30 x 30,000 / 50,000 = 245.58 (the lower of the two applies)
+    expect(est.totals.medicareLevyCents).toBe(24558);
   });
   it('single low income below threshold pays nothing', () => {
     const est = run([a(Q.emp.gross, c(27000), 'e1')]);
