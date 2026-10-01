@@ -23,6 +23,14 @@ describe('MLS in the pipeline', () => {
     const est = run([a(Q.phi.cover, 'part_year'), a(Q.phi.daysCovered, 200), a(Q.emp.gross, c(100000), 'e1')]);
     expect(est.totals.mlsCents).toBe(Math.round((100000 * 165) / 365));
   });
+  it('a spouse whose own income is at or below the Medicare low-income threshold pays no surcharge (s 8D(3)(c))', () => {
+    const spouse = [a(Q.fam.spouse, 'all_year'), a(Q.fam.spouseTaxableIncome, c(220000)), a(Q.fam.spouseRfb, 0), a(Q.fam.spouseRsc, 0), a(Q.phi.cover, 'none')];
+    const low = run([...spouse, a(Q.emp.gross, c(RULES.medicare.lowIncome.single.lower), 'e1')]);
+    expect(low.totals.mlsCents).toBe(0);
+    expect(lineById(low, 'mls.surcharge').formula).toContain('8D(3)(c)');
+    const above = run([...spouse, a(Q.emp.gross, c(RULES.medicare.lowIncome.single.lower + 1), 'e1')]);
+    expect(above.totals.mlsCents).toBeGreaterThan(0);
+  });
   it('whole-year cover -> 0', () => {
     const est = run([a(Q.phi.cover, 'whole_year'), a(Q.emp.gross, c(100000), 'e1')]);
     expect(est.totals.mlsCents).toBe(0);

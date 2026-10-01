@@ -107,6 +107,22 @@ export function computeMls(cx: CalcContext, taxableCents: number, rfbCents: numb
     });
     return 0;
   }
+  // Medicare Levy Act s 8D(3)(c): a person with a spouse pays no surcharge when their own income for
+  // surcharge purposes does not exceed the individual Medicare levy low-income threshold.
+  const lowIncome = dollarsToCents(rules.medicare.lowIncome.single.lower);
+  if (fam.hasSpouse && own <= lowIncome) {
+    cx.setStatus('mls', 'computed');
+    cx.lines.computed({
+      id: 'mls.surcharge',
+      section: 'mls',
+      label: 'Medicare levy surcharge (own income at or below the low-income threshold)',
+      amountCents: 0,
+      ruleId: `${rules.fy}.mls`,
+      inputs,
+      formula: `family income for MLS ${testIncome / 100} is in tier ${tier.tier}, but own income for MLS ${own / 100} does not exceed ${lowIncome / 100} (s 8D(3)(c)): no surcharge`,
+    });
+    return 0;
+  }
   const { days, reason } = daysWithoutCover(cx);
   if (days === undefined) {
     cx.setStatus('mls', 'manual_review');
