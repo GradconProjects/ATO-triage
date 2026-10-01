@@ -7,7 +7,6 @@ const SPOUSE = isIn(Q.fam.spouse, ['all_year', 'part_year']);
 // The rebate applies to hospital, extras (general) and combined policies, so extras-only cover counts here.
 const PHI_COVERED = isIn(Q.phi.cover, ['whole_year', 'part_year', 'extras_only']);
 const FROM_STATEMENT = eq(Q.phi.policySource, 'statement');
-const OWN_FIGURES = eq(Q.phi.policySource, 'own_figures');
 const NOT_STATEMENT = not(eq(Q.phi.policySource, 'statement'));
 
 export const FAMILY_QUESTIONS: Question[] = flatten(
