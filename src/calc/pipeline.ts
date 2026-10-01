@@ -111,7 +111,12 @@ export function calculate(input: CalcInput): Estimate {
     refundableOffsetsCents: refundableOffsets,
   };
 
-  // Anything answered "not sure" among the calc's key gate questions is uncertain for the range.
+  // A year whose rule table still carries forward unconfirmed values is a limitation of the estimate.
+  if (cx.rules.unconfirmed?.length) {
+    cx.review('rules', `Some ${cx.fy} rates are not yet confirmed by the ATO: ${cx.rules.unconfirmed.join('; ')}. The estimate may change when they are published.`, []);
+    cx.markUncertain('rules.unconfirmed');
+  }
+    // Anything answered "not sure" among the calc's key gate questions is uncertain for the range.
   if (cx.a.isNotSure(Q.res.status)) cx.markUncertain(Q.res.status);
 
   return {

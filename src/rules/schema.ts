@@ -89,6 +89,8 @@ export const ruleSetSchema = z
   .object({
     fy: z.enum(FY_VALUES),
     version: z.string().regex(/^20\d{2}-\d{2}\.\d+$/),
+    /** Values carried forward or otherwise not yet confirmed for this year (shown as limitations). */
+    unconfirmed: z.array(z.string()).optional(),
     /** ISO date someone checked every source. */
     verifiedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     /** Free-text notes about verification status (e.g. which values await ATO confirmation). */

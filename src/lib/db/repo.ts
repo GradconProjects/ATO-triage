@@ -172,9 +172,18 @@ export async function saveEstimate(
   input: { rule_set_version: string; result: unknown; confidence: EstimateRow['confidence']; completeness_pct: number },
   flags: Omit<FlagRow, 'id' | 'case_id' | 'owner_id' | 'estimate_id'>[],
 ): Promise<EstimateRow> {
-  // Regenerate: drop previous runs for this case.
-  await db.from('flags').delete().eq('case_id', caseId);
-  await db.from('estimates').delete().eq('case_id', caseId);
+  // Estimate history is kept (earlier estimates are never deleted). A new row is added only when
+  // the result or rule-set version changed; otherwise the latest row's flags are refreshed.
+  const prev = await latestEstimate(db, caseId);
+  const sameAsPrev = prev && prev.rule_set_version === input.rule_set_version && JSON.stringify((prev.result as { totals?: unknown })?.totals) === JSON.stringify((input.result as { totals?: unknown })?.totals) && prev.confidence === input.confidence;
+  if (sameAsPrev) {
+    await db.from('flags').delete().eq('estimate_id', prev.id);
+    if (flags.length) {
+      const res = await db.from('flags').insert(flags.map((f) => ({ ...f, case_id: caseId, owner_id: ownerId, estimate_id: prev.id })));
+      if (res.error) throw new Error(res.error.message);
+    }
+    return prev;
+  }
   const est = unwrap(await db.from('estimates').insert({ ...input, case_id: caseId, owner_id: ownerId }).select('*').single()) as EstimateRow;
   if (flags.length) {
     const res = await db.from('flags').insert(flags.map((f) => ({ ...f, case_id: caseId, owner_id: ownerId, estimate_id: est.id })));
@@ -190,8 +199,11 @@ export async function latestEstimate(db: Db, caseId: string): Promise<EstimateRo
   return res.data as EstimateRow | null;
 }
 
+/** Flags of the latest estimate (earlier estimates keep their own flags as history). */
 export async function listFlags(db: Db, caseId: string): Promise<FlagRow[]> {
-  return unwrap(await db.from('flags').select('*').eq('case_id', caseId)) as FlagRow[];
+  const latest = await latestEstimate(db, caseId);
+  if (!latest) return [];
+  return unwrap(await db.from('flags').select('*').eq('estimate_id', latest.id)) as FlagRow[];
 }
 
 // ---------- reports ----------

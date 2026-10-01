@@ -8,8 +8,14 @@ import { validateRuleSet, type RuleSet } from './schema';
  */
 const ruleSet: RuleSet = validateRuleSet({
   fy: '2026-27',
-  version: '2026-27.1',
+  version: '2026-27.2',
   verifiedOn: '2026-09-28',
+  unconfirmed: [
+    'Medicare levy low-income thresholds (2025-26 values carried forward until the 2026-27 uplift is announced)',
+    'Private health rebate percentages for 1 April to 30 June 2027 (published by the ATO in March 2027)',
+    'Working-from-home fixed rate (70c carried forward)',
+    'Foreign-resident and working holiday maker scales (2025-26 scales carried forward)',
+  ],
   verificationNotes: [
     'Confirmed against ato.gov.au page text on 2026-09-28: resident scale (15% first bracket, bases $4,020 / $31,020 / $51,370 — ATO resident tax rates page and the "new tax cuts" legislation page); SAPTO 2026-27 ($36,034 / $53,874 single, $31,847 / $44,663 each partner — ATO "Personal income tax – new tax cuts" page; max offsets unchanged); MLS tiers ($105,000 / $123,000 / $164,000 single, $210,000 / $246,000 / $328,000 family — note tier 1 upper is $123,000 not $122,000); PHI rebate percentages for 1 July 2026 – 31 March 2027 (24.118 / 28.139 / 32.158 base etc.); car 91c (2026-27); concessional cap $32,500 (indexed from 1 July 2026); HELP marginal bands (ATO study-loan page, Table 1: $69,528 / $129,717 / $186,050, base $9,028).',
     'CARRIED FORWARD, NOT CONFIRMED: (1) Medicare low-income thresholds — the 2026-27 uplift had not been announced as at 2026-09-28, so the 2025-26 values (single $28,011 / $35,013, family $47,238 / $59,047, SAPTO $44,268 / $55,335, SAPTO family $61,623 / $77,028, child $4,338) are carried forward; these are normally indexed in the May Budget and applied retrospectively. (2) PHI rebate Apr–Jun 2027 percentages — the ATO says the 1 April 2027 rates will be published in March 2027; the Jul–Mar values are repeated for the Apr fields. (3) WFH fixed rate — the ATO fixed-rate page lists 70c for 2024-25 and 2025-26 only; 70c is carried forward for 2026-27 (PCG 2023/1 has no end date). (4) Foreign-resident and WHM scales — ATO pages list up to 2025-26; the 2026-27 tax cut only changes the 16% resident bracket, which neither scale uses, so the 2025-26 scales are carried forward.',

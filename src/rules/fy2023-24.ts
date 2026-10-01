@@ -7,7 +7,7 @@ import { validateRuleSet, type RuleSet } from './schema';
  */
 const ruleSet: RuleSet = validateRuleSet({
   fy: '2023-24',
-  version: '2023-24.1',
+  version: '2023-24.2',
   verifiedOn: '2026-09-28',
   verificationNotes: [
     'Confirmed against ato.gov.au page text on 2026-09-28: resident, foreign-resident and WHM scales; LITO; SAPTO ($32,279/$50,119 single, $28,974/$41,790 couple — the pre-2024-25 thresholds, confirmed by the ATO withholding-declaration SAPTO calculator page and the M1 2024 note that SAPTO ceases at $50,119); Medicare low-income thresholds (M1 2024: single $26,000/$32,500, SAPTO $41,089/$51,361, family upper $54,807, SAPTO family upper $71,497, child upper increment $5,034); MLS tiers; car 85c; WFH 67c; concessional cap $27,500; HELP bands (ATO study-loan page, Table 4).',

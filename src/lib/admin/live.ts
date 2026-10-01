@@ -120,7 +120,7 @@ export async function userDetail(db: SupabaseClient, userId: string): Promise<Us
     db.from('profiles').select('id, display_name, occupations').eq('owner_id', userId).order('created_at'),
     db.from('fy_cases').select('id, profile_id, financial_year, purpose, status').eq('owner_id', userId),
     db.from('answers').select('case_id, created_at').eq('owner_id', userId).order('created_at', { ascending: false }).limit(5000),
-    db.from('estimates').select('case_id, result').eq('owner_id', userId),
+    db.from('estimates').select('case_id, result, created_at').eq('owner_id', userId).order('created_at', { ascending: false }),
     labels(db),
   ]);
   return {

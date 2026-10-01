@@ -7,7 +7,7 @@ import { validateRuleSet, type RuleSet } from './schema';
  */
 const ruleSet: RuleSet = validateRuleSet({
   fy: '2025-26',
-  version: '2025-26.1',
+  version: '2025-26.2',
   verifiedOn: '2026-09-28',
   verificationNotes: [
     'Confirmed against ato.gov.au page text on 2026-09-28: resident, foreign-resident and WHM scales; LITO; SAPTO ($34,919 / $52,759 single, $30,994 / $43,810 each partner — T1 2026 / myTax 2026 pages); Medicare low-income thresholds (single $28,011 / $35,013, SAPTO $44,268 / $55,335, family $47,238 / $59,047, SAPTO family $61,623 / $77,028, child increment $4,338 lower / $5,423 upper — these are the 2026-27 Budget uplift applied retrospectively to 2025-26); MLS tiers; PHI rebate percentages for both periods (1 Jul 2025 – 31 Mar 2026 and 1 Apr – 30 Jun 2026, rebate adjustment factor 0.993); car 88c; WFH 70c; concessional cap $30,000; HELP marginal bands (ATO study-loan page, Table 2).',

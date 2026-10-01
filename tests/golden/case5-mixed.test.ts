@@ -133,6 +133,7 @@ describe('golden 5: employee + rental + crypto 2026-27', () => {
     expect(est.totals.creditsCents).toBe(c(22000));
     expect(est.totals.resultCents).toBe(c(-1896));
     expect(lineById(est, 'result').label).toBe('Estimated amount owing');
-    expect(est.manualReview).toEqual([]);
+    // Only the 2026-27 limitation: some rates are still carried forward pending ATO confirmation.
+    expect(est.manualReview.map((r) => r.module)).toEqual(['rules']);
   });
 });

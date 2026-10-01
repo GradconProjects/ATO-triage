@@ -7,7 +7,7 @@ import { validateRuleSet, type RuleSet } from './schema';
  */
 const ruleSet: RuleSet = validateRuleSet({
   fy: '2024-25',
-  version: '2024-25.1',
+  version: '2024-25.2',
   verifiedOn: '2026-09-28',
   verificationNotes: [
     'Confirmed against ato.gov.au page text on 2026-09-28: resident, foreign-resident and WHM scales; LITO; MLS tiers; PHI rebate percentages for both periods (1 Jul 2024 – 31 Mar 2025 and 1 Apr – 30 Jun 2025); car 88c; WFH 70c; concessional cap $30,000; HELP bands (ATO study-loan page, Table 3).',
