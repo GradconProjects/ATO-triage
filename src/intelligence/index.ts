@@ -13,7 +13,7 @@ import { evaluateFlags, FLAG_RULES } from './flags';
 import { finaliseCheck } from './gate';
 import { visibleAnswers } from './helpers';
 import { rangeEstimate } from './range';
-import { completenessFrom, confidence } from './scoring';
+import { completenessFrom, confidence, evidencePct, reliability } from './scoring';
 import type { IntelligenceContext, IntelligenceResult, LinkedPhiElection } from './types';
 
 export type IntelligenceInput = CalcInput & { visibleQuestions?: VisibleQuestion[]; linkedPhi?: LinkedPhiElection[] };
@@ -48,6 +48,8 @@ export function runIntelligence(input: IntelligenceInput, estimate: Estimate, re
   const flags = evaluateFlags(ctx, FLAG_RULES);
   const visible = input.visibleQuestions ?? visibleQuestionsFromKeys(input);
   const completeness = completenessFrom(computeProgress(visible, input.answers));
+  completeness.evidencePct = evidencePct(estimate);
+  completeness.reliability = reliability(estimate, flags);
   const conf = confidence(estimate, flags, completeness);
   const calcInput: CalcInput = { ...input };
   delete (calcInput as { visibleQuestions?: unknown }).visibleQuestions;

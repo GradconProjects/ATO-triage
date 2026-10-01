@@ -39,6 +39,7 @@ const run = () =>
       a(Q.comp.received, ['weekly', 'arrears', 'impairment']),
       a(Q.comp.weeklyAmount, c(30000)),
       a(Q.comp.weeklyWithheld, c(5000)),
+      a(Q.comp.weeklyIncludesArrears, 'no'),
       a(Q.comp.arrearsAmount, c(14000)),
       a('comp.arrears.date', '2025-03-01'),
       a(Q.comp.impairmentAmount, c(50000)),

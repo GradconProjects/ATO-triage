@@ -94,21 +94,24 @@ export const MEDICARE_EXEMPTION_DAYS_MISSING: FlagRule = {
     'You said you were exempt from the Medicare levy for part of the year but have not entered the number of days. The levy is reduced by the exempt days, so the full levy has been estimated for now. Check your Medicare entitlement statement for the dates.',
 };
 
-export const PHI_TIER_UNKNOWN: FlagRule = perInstance(
-  { code: 'PHI_TIER_UNKNOWN', kind: 'missing', severity: 'warning', atoRef: ATO.phiRebate },
-  (a): FlagInstance[] => {
-    const cover = a.string(Q.phi.cover);
-    if (cover !== 'whole_year' && cover !== 'part_year') return [];
-    return a
-      .items(GROUPS.phiPolicy)
-      .filter((it) => {
-        const tier = a.string(Q.phi.policyTier, it.id);
-        return tier === undefined || tier === 'not_sure';
-      })
-      .map((it) => ({
-        questionIds: [answerKey(Q.phi.policyTier, it.id)],
-        message: 'The rebate tier claimed on a health insurance policy is not known. If the rebate received through the year was more than your income allows, the difference is added to your tax. Check the private health insurance statement for the tier or rebate percentage claimed.',
-      }));
+/**
+ * "Yes" with nothing behind it: a visible list (interest accounts, employers, policies...) with no
+ * entries, or a visible required amount with no answer at all. The item is not counted, so the
+ * estimate is incomplete: an unresolved issue, never a silent zero.
+ */
+export const UNRESOLVED_AMOUNT: FlagRule = perInstance(
+  { code: 'UNRESOLVED_AMOUNT', kind: 'missing', severity: 'warning' },
+  (a, ctx): FlagInstance[] => {
+    const out: FlagInstance[] = [];
+    for (const q of ctx.questions) {
+      if (q.type === 'repeater' && q.repeater && ctx.visible.has(q.id) && (q.repeater.minItems ?? 0) > 0 && a.items(q.repeater.groupId).length === 0) {
+        out.push({ questionIds: [q.id], message: `"${q.prompt}": you answered yes, but nothing has been added yet, so it is not counted. Add the details (or change the earlier answer).` });
+      }
+      if (q.type === 'money' && q.required && !q.repeaterGroup && ctx.visible.has(q.id) && a.get(q.id) === undefined && (q.income || q.deduction || q.credit)) {
+        out.push({ questionIds: [q.id], message: `"${q.prompt}" has no amount yet, so it is not counted in the estimate.` });
+      }
+    }
+    return out;
   },
 );
 
@@ -145,7 +148,7 @@ export const MISSING_RULES: FlagRule[] = [
   CRYPTO_METHOD_MISSING,
   WHM_INCOME_MISSING,
   MEDICARE_EXEMPTION_DAYS_MISSING,
-  PHI_TIER_UNKNOWN,
+  UNRESOLVED_AMOUNT,
   IMPORT_UNCONFIRMED,
   SKIPPED_REQUIRED,
 ];

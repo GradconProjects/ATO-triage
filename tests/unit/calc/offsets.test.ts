@@ -106,7 +106,7 @@ describe('private health rebate reconciliation', () => {
 
 describe('LSPIA', () => {
   const years = [item('y1', 'lump_sum_e_year'), item('y2', 'lump_sum_e_year', 1)];
-  const arrears = (weekly: number) => [a(Q.comp.weeklyAmount, c(weekly)), a(Q.comp.arrearsAmount, c(14000)), a(Q.comp.lseFy, '2022-23', 'y1'), a(Q.comp.lseAmount, c(8000), 'y1'), a(Q.comp.lseTaxableIncome, c(25000), 'y1'), a(Q.comp.lseOver12m, 'yes', 'y1'), a(Q.comp.lseFy, '2023-24', 'y2'), a(Q.comp.lseAmount, c(6000), 'y2'), a(Q.comp.lseTaxableIncome, c(28000), 'y2'), a(Q.comp.lseOver12m, 'yes', 'y2')];
+  const arrears = (weekly: number) => [a(Q.comp.weeklyAmount, c(weekly)), a(Q.comp.weeklyIncludesArrears, 'no'), a(Q.comp.arrearsAmount, c(14000)), a(Q.comp.lseFy, '2022-23', 'y1'), a(Q.comp.lseAmount, c(8000), 'y1'), a(Q.comp.lseTaxableIncome, c(25000), 'y1'), a(Q.comp.lseOver12m, 'yes', 'y1'), a(Q.comp.lseFy, '2023-24', 'y2'), a(Q.comp.lseAmount, c(6000), 'y2'), a(Q.comp.lseTaxableIncome, c(28000), 'y2'), a(Q.comp.lseOver12m, 'yes', 'y2')];
   it('below $1,200 -> no offset (excluded line)', () => {
     const est = run([a(Q.emp.gross, c(50000), 'e1'), a(Q.emp.lumpE, c(1000), 'e1')]);
     expect(lineById(est, 'offset.lspia').status).toBe('excluded');

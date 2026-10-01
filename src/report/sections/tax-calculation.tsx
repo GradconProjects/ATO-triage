@@ -5,6 +5,7 @@ import type { ReportSnapshot } from '../snapshot';
 import { styles } from '../styles';
 import { SectionTitle } from './chrome';
 import { Table } from './table';
+import { DISPLAY_STATUS_LABEL, displayStatus } from '@/src/calc/status';
 
 export const SECTION_ORDER: { id: EstimateSection; label: string }[] = [
   { id: 'income', label: 'Assessable income' },
@@ -21,11 +22,10 @@ export const SECTION_ORDER: { id: EstimateSection; label: string }[] = [
   { id: 'result', label: 'Result' },
 ];
 
-function statusSuffix(l: EstimateLine): string {
-  if (l.status === 'excluded') return ' (excluded)';
-  if (l.status === 'manual_review') return ' (manual review)';
+function statusSuffix(l: EstimateLine, estimate: ReportSnapshot['estimate']): string {
   if (l.informational) return ' (for information)';
-  return '';
+  const st = displayStatus(l, estimate);
+  return st === 'confirmed' ? '' : ` (${DISPLAY_STATUS_LABEL[st].toLowerCase()})`;
 }
 
 /** Section 5: the full explain trail grouped by pipeline section. */
@@ -58,7 +58,7 @@ export function TaxCalculationSection({ snapshot }: { snapshot: ReportSnapshot }
               ]}
               rows={lines.map((l, i) => ({
                 _key: `${l.id}-${i}`,
-                label: `${l.label}${statusSuffix(l)}`,
+                label: `${l.label}${statusSuffix(l, snapshot.estimate)}`,
                 amount: money(l.amountCents),
                 ruleId: l.ruleId,
                 formula: l.note ? `${l.formula} — ${l.note}` : l.formula,

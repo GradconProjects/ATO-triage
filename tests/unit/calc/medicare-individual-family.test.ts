@@ -39,7 +39,7 @@ describe('Medicare levy: individual test first, family test only lowers it', () 
 describe('Medicare levy exemption for lump sums in arrears (s 9A, from 2024-25)', () => {
   const years = [item('y1', GROUPS.lumpSumEYear), item('y2', GROUPS.lumpSumEYear, 1)];
   const base = (hist1: number, hist2: number) => [
-    a(Q.comp.weeklyAmount, c(20000)), a(Q.comp.arrearsAmount, c(8000)),
+    a(Q.comp.weeklyAmount, c(20000)), a(Q.comp.weeklyIncludesArrears, 'no'), a(Q.comp.arrearsAmount, c(8000)),
     a(Q.comp.lseFy, '2023-24', 'y1'), a(Q.comp.lseAmount, c(4000), 'y1'), a(Q.comp.lseTaxableIncome, c(hist1), 'y1'), a(Q.comp.lseOver12m, 'yes', 'y1'),
     a(Q.comp.lseFy, '2022-23', 'y2'), a(Q.comp.lseAmount, c(4000), 'y2'), a(Q.comp.lseTaxableIncome, c(hist2), 'y2'), a(Q.comp.lseOver12m, 'yes', 'y2'),
   ];

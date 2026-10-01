@@ -74,15 +74,11 @@ describe('MEDICARE_EXEMPTION_DAYS_MISSING', () => {
   });
 });
 
-describe('PHI_TIER_UNKNOWN', () => {
-  const policies = [item('p1', GROUPS.phiPolicy), item('p2', GROUPS.phiPolicy)];
-  it('fires per policy with an unknown tier when hospital cover is held', () => {
-    const f = only(flagsFor({ items: policies, records: [rec(Q.phi.cover, 'whole_year'), notSure(Q.phi.policyTier, 'p1'), rec(Q.phi.policyTier, 'base', { item: 'p2' })] }), 'PHI_TIER_UNKNOWN');
-    expect(f.map((x) => x.questionIds)).toEqual([[`${Q.phi.policyTier}@p1`]]);
-  });
-  it('does not fire when tiers are known or there is no cover', () => {
-    expect(codes(flagsFor({ items: policies, records: [rec(Q.phi.cover, 'whole_year'), rec(Q.phi.policyTier, 'tier1', { item: 'p1' }), rec(Q.phi.policyTier, 'base', { item: 'p2' })] }))).not.toContain('PHI_TIER_UNKNOWN');
-    expect(codes(flagsFor({ items: policies, records: [rec(Q.phi.cover, 'none')] }))).not.toContain('PHI_TIER_UNKNOWN');
+describe('UNRESOLVED_AMOUNT', () => {
+  it('fires when a visible list has no entries (e.g. "yes" to interest with no accounts)', () => {
+    const bank = [q({ id: 'inv.interest.any', module: 'investments', type: 'yes_no_unsure' }), q({ id: 'inv.interest', module: 'investments', type: 'repeater', repeater: { groupId: 'interest_account', itemLabel: 'Account', addLabel: 'Add', minItems: 1 } })];
+    const f = flagsFor({ questions: bank, visible: new Set(['inv.interest.any', 'inv.interest']), records: [rec('inv.interest.any', 'yes')] });
+    expect(codes(f)).toContain('UNRESOLVED_AMOUNT');
   });
 });
 

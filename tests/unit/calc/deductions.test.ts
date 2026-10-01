@@ -102,8 +102,12 @@ describe('data-driven deductions', () => {
     expect(lineById(est, `ded.${Q.ded.clothingAmount}`).status).toBe('excluded');
     expect(est.totals.deductionsCents).toBe(0);
   });
-  it('clothing: plain plus protective -> deductible', () => {
+  it('clothing: plain plus protective bought together -> review (only the eligible part can be claimed)', () => {
     const est = run([a(Q.ded.clothingType, ['plain', 'protective']), a(Q.ded.clothingAmount, 25000)]);
+    expect(lineById(est, `ded.${Q.ded.clothingAmount}`).status).toBe('manual_review');
+  });
+  it('clothing: protective only -> deductible', () => {
+    const est = run([a(Q.ded.clothingType, ['protective']), a(Q.ded.clothingAmount, 25000)]);
     expect(lineById(est, `ded.${Q.ded.clothingAmount}`).status).toBe('computed');
   });
   it('clothing: type unanswered or not sure -> review', () => {

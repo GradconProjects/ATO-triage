@@ -67,10 +67,14 @@ export interface FlagRule {
 }
 
 export interface Completeness {
-  /** Weighted completeness (income modules x3, deductions x2, others x1). */
+  /** Weighted interview completeness (income modules x3, deductions x2, others x1). */
   pct: number;
   incomeModulesPct: number;
   byModule: ModuleProgress[];
+  /** Share (by amount) of included deductions backed by records (receipts, statements, diaries). */
+  evidencePct?: number;
+  /** How far the calculation itself can be relied on, separate from interview completeness. */
+  reliability?: { level: 'high' | 'medium' | 'low'; reasons: string[] };
 }
 
 export type RangeEstimate = NonNullable<Estimate['range']>;

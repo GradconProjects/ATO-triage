@@ -23,7 +23,9 @@ export function SummarySection({ snapshot }: { snapshot: ReportSnapshot }) {
         <KeyValue k="Taxable income" v={money(t.taxableIncomeCents)} />
         <KeyValue k="Total tax and levies" v={money(totalTaxAndLevies)} />
         <KeyValue k="Total credits" v={money(t.creditsCents)} />
-        <KeyValue k="Completeness" v={`${snapshot.intelligence.completeness.pct}%`} />
+        <KeyValue k="Interview completeness" v={`${snapshot.intelligence.completeness.pct}%`} />
+        {snapshot.intelligence.completeness.evidencePct !== undefined ? <KeyValue k="Evidence completeness" v={`${snapshot.intelligence.completeness.evidencePct}% of claimed deductions`} /> : null}
+        {snapshot.intelligence.completeness.reliability ? <KeyValue k="Calculation reliability" v={snapshot.intelligence.completeness.reliability.level} /> : null}
         <KeyValue k="Open review items" v={String(open)} />
         <KeyValue k="Confidence" v={snapshot.intelligence.confidence.level} />
         {snapshot.assessedResultCents !== undefined ? (

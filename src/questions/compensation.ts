@@ -1,7 +1,7 @@
 /** M6 WorkCover, compensation, Lump Sum E and termination payments. Universal. */
 import type { Option, Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
-import { flatten, includes, money, opt, repeater, screening, single, singleAllowListed, text, yesNoUnsure, date } from './shared';
+import { all, flatten, includes, money, opt, repeater, screening, single, singleAllowListed, text, yesNoUnsure, date } from './shared';
 
 const L = GROUPS.lumpSumEYear;
 const ARREARS = includes(Q.comp.received, 'arrears');
@@ -37,6 +37,10 @@ export const COMPENSATION_QUESTIONS: Question[] = flatten(
     help: 'Shown on the payment summary. It is credited against your tax.',
   }),
 
+  single(Q.comp.weeklyIncludesArrears, 'compensation', 'Does that weekly payments total already include the arrears (lump sum E)?', [
+    opt('yes', 'Yes, the gross shown includes the arrears', 'Some payment summaries show one gross figure that already contains the back pay.'),
+    opt('no', 'No, the arrears are shown separately'),
+  ], { showIf: all(includes(Q.comp.received, 'weekly'), includes(Q.comp.received, 'arrears')), feeds: ['income'], help: 'So the arrears are counted once. Tax withheld is entered once too, whatever it covers.' }),
   amt(Q.comp.arrearsAmount, 'arrears', 'What was the total of the arrears payment?', { category: 'lump_sum_e', treatment: 'I' }, 'The lump sum of back pay you received this year. We will ask which earlier years it relates to.', ['income', 'lspia']),
   date('comp.arrears.date', 'compensation', 'On what date was the arrears payment made?', { showIf: ARREARS, validation: [{ kind: 'inFinancialYear' }], feeds: ['lspia'], help: 'The payment date decides which amounts accrued more than 12 months earlier.' }),
 

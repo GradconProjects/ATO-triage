@@ -118,8 +118,29 @@ function clothingTreatment(cx: CalcContext, id: string, itemId: string | null): 
     return { treatment: 'R', inputs: [typeQ], note: cx.scopedNotSure(typeQ, itemId) ? 'Not sure what type of clothing this was.' : 'Type of clothing not answered.', formula: 'clothing type unknown' };
   }
   const isEligible = invert ? list.some((v) => !ineligible.includes(v)) : list.some((v) => eligible.includes(v));
+  const hasIneligible = list.some((v) => (invert ? ineligible.includes(v) : !eligible.includes(v)) && v !== 'none');
+  if (isEligible && hasIneligible) {
+    return { treatment: 'R', inputs: [typeQ], note: 'Eligible and plain or everyday clothing were bought together: only the eligible items can be claimed, so the total needs to be split.', formula: `mixed clothing (${list.join(', ')})` };
+  }
   if (isEligible) return { treatment: 'D', inputs: [typeQ], formula: `eligible clothing (${list.join(', ')})` };
   return { treatment: 'N', inputs: [typeQ], note: CLOTHING_NOTE_PLAIN, formula: `clothing type ${list.join(', ')} not deductible` };
+}
+
+/** Courses entered under occupation questions (chef courses, support-worker training). */
+const OCCUPATION_COURSE_AMOUNTS = [Q.chef.coursesAmount, Q.dsw.trainingAmount];
+
+/**
+ * The general self-education entry may be the same course already entered under the job
+ * questions. Until the user says it is a different course, it is held for review (not added a
+ * second time); when confirmed the same, it is excluded as a duplicate.
+ */
+function selfEdDuplicate(cx: CalcContext): Resolved | undefined {
+  const occupational = OCCUPATION_COURSE_AMOUNTS.filter((q) => cx.visible.has(q) && (cx.a.cents(q) ?? 0) > 0);
+  if (!occupational.length) return undefined;
+  const same = cx.a.string(Q.ded.selfEdSameCourse);
+  if (same === 'different') return undefined;
+  if (same === 'same') return { treatment: 'N', inputs: [Q.ded.selfEdSameCourse, ...occupational], note: 'Same course as the one entered under your job questions: counted once, there.', formula: 'duplicate course entry' };
+  return { treatment: 'R', inputs: [Q.ded.selfEdSameCourse, ...occupational], note: 'A course is also entered under your job questions. Confirm whether this is the same course (counted once) or a different one.', formula: 'possible duplicate course' };
 }
 
 function giftsTreatment(cx: CalcContext, itemId: string | null): Resolved {
@@ -168,16 +189,21 @@ export function computeDeductions(cx: CalcContext): DeductionsResult {
       const clothing = clothingTreatment(cx, id, itemId);
       if (clothing) r = clothing;
       else if (id === Q.ded.giftsAmount) r = giftsTreatment(cx, itemId);
+      else if (id === Q.ded.selfEdAmount && selfEdDuplicate(cx)) r = selfEdDuplicate(cx)!;
+      else if (meta.category === 'phone_internet' && cx.a.string(Q.ded.wfhMethod) === 'fixed_rate') {
+        // The fixed rate already covers phone and internet use while working at home.
+        r = { treatment: 'R', inputs: [Q.ded.wfhMethod], note: 'You chose the working-from-home fixed rate, which already covers phone and internet use while working at home. Only separate work use outside those hours can be claimed, with records.', formula: 'possible overlap with the fixed rate' };
+      }
       else {
         const t = resolveTreatment(cx, meta.treatment, itemId, 'D');
         r = { treatment: t.treatment, inputs: t.via ? [t.via] : [], formula: t.via ? `${t.via} = ${t.value ?? 'unanswered'} -> ${t.treatment}` : `treatment ${t.treatment}`, ...(t.fallback ? { note: `Depends on ${t.via}, which has no usable answer.` } : {}) };
       }
       inputs.push(...r.inputs);
       const weak = weakEvidence(cx, base, itemId);
+      detail['evidence'] = weak ? 'weak' : (cx.scopedString(`${base}.evidence`, itemId) ?? 'not_answered');
       if (weak) {
         cx.markUncertain(key);
         inputs.push(`${base}.evidence`);
-        detail['evidence'] = 'weak';
       }
 
       if (r.treatment === 'N') {

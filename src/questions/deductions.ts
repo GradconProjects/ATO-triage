@@ -229,16 +229,25 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   // =========================================================================
   // Home office (special module: fixed rate x hours, or actual costs; dsw.home_office routes here)
   // =========================================================================
+  // Available to every occupation (support workers answer dsw.home_office instead).
   yesNoUnsure(Q.ded.wfhAny, D, 'Did you do any of your paid work from home this year?', {
-    occupationTags: ['home_office'], atoRef: ATO.wfh, feeds: ['deductions'], showIf: not(occ('dsw')),
-    help: 'Admin, case notes, calls, reports or rostered work done at home. Checking the odd email does not count.',
+    atoRef: ATO.wfh, feeds: ['deductions'], showIf: not(occ('dsw')),
+    help: 'Substantive work duties done at home: reports, case notes, client calls, planning. Checking a roster or payslip, or the odd email, does not count, and working at home does not make the trip to your workplace deductible.',
+  }),
+  multi(Q.ded.wfhActivities, D, 'Which of these did you do at home?', [
+    opt('employment', 'Duties for my job as an employee'),
+    opt('business', 'Work for my own business'),
+    opt('study', 'Study for a course related to my current work'),
+  ], {
+    atoRef: ATO.wfh, showIf: WFH_ON, required: false, feeds: ['deductions'],
+    help: 'Each activity keeps its own hours. An hour is counted once, under one activity. Hours are evidence for a permitted method, not a deduction on their own.',
   }),
   single(Q.ded.wfhMethod, D, 'Which method do you want to use for working-from-home costs?', [
     opt('fixed_rate', 'Fixed rate per hour worked at home', 'A set rate per hour covers electricity, internet, phone, stationery. You need a record of the hours.'),
     opt('actual', 'Actual costs with a work-use percentage', 'You add up the real costs and apply a work percentage. Needs receipts and a record of use.'),
-  ], { occupationTags: ['home_office'], atoRef: ATO.wfh, showIf: WFH_ON, feeds: ['deductions'], calc: { special: 'wfh' } }),
-  num(Q.ded.wfhHours, D, 'How many hours did you work from home during the year?', {
-    occupationTags: ['home_office'], atoRef: ATO.wfh, showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'fixed_rate')), feeds: ['deductions'], calc: { special: 'wfh' },
+  ], { atoRef: ATO.wfh, showIf: WFH_ON, feeds: ['deductions'], calc: { special: 'wfh' } }),
+  num(Q.ded.wfhHours, D, 'How many hours did you do your job duties at home during the year?', {
+    atoRef: ATO.wfh, showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'fixed_rate')), feeds: ['deductions'], calc: { special: 'wfh' },
     validation: [{ kind: 'min', value: 1 }, { kind: 'max', value: 4000 }],
     help: 'Total for the year from your record, for example a diary, timesheet or roster.',
   }),
@@ -247,9 +256,21 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     opt('representative_4_weeks', 'A representative 4-week record', 'Only accepted for earlier years; from 2023-24 the ATO requires a record of the actual hours for the full year.'),
     opt('estimate', 'An estimate only', 'The fixed-rate method is not available without a record; we flag this.'),
     opt('none', 'No record'),
-  ], { occupationTags: ['home_office'], atoRef: ATO.wfh, showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'fixed_rate')), feeds: ['deductions'], help: 'The fixed-rate method needs a record of actual hours.' }),
+  ], { atoRef: ATO.wfh, showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'fixed_rate')), feeds: ['deductions'], help: 'The fixed-rate method needs a record of actual hours.' }),
+  num(Q.ded.wfhBusinessHours, D, 'How many hours of work for your business did you do at home?', {
+    atoRef: ATO.wfh, showIf: all(WFH_ON, includes(Q.ded.wfhActivities, 'business')), feeds: ['deductions'], validation: [{ kind: 'min', value: 0 }, { kind: 'max', value: 4000 }],
+    help: 'Recorded here as evidence. The running costs belong in that business\'s expenses, so they are not claimed twice.',
+  }),
+  num(Q.ded.wfhStudyHours, D, 'How many hours did you study at home for that course?', {
+    atoRef: ATO.selfEd, showIf: all(WFH_ON, includes(Q.ded.wfhActivities, 'study')), feeds: ['deductions'], validation: [{ kind: 'min', value: 0 }, { kind: 'max', value: 4000 }],
+    help: 'From a diary or log. Study hours are not automatically claimed at the working-from-home rate; the method is checked for your course and year.',
+  }),
+  yesNoUnsure(Q.ded.wfhHoursOverlap, D, 'Are any of those hours also counted in another activity?', {
+    atoRef: ATO.wfh, showIf: all(WFH_ON, any(includes(Q.ded.wfhActivities, 'business'), includes(Q.ded.wfhActivities, 'study'))), required: false, feeds: ['deductions'],
+    help: 'For example an evening counted as both job hours and study hours. Each hour can only be used once.',
+  }),
   ...deductionSet({
-    base: 'ded.wfh', module: D, amountId: Q.ded.wfhActualCosts, category: 'home_office', treatment: 'D', atoRef: ATO.wfh, occupationTags: ['home_office'],
+    base: 'ded.wfh', module: D, amountId: Q.ded.wfhActualCosts, category: 'home_office', treatment: 'D', atoRef: ATO.wfh,
     showIf: all(WFH_ON, eq(Q.ded.wfhMethod, 'actual')), prompt: 'What were the total home running costs for the year?',
     help: 'Electricity, gas, internet, phone, stationery, and decline in value of a desk or computer. Before applying the work percentage.',
     workPct: true, workPctPrompt: 'What percentage of those costs relate to work?',
@@ -283,16 +304,21 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   // =========================================================================
   // Self-education
   // =========================================================================
+  // Available to every occupation (no occupation tag), and can be changed at any time.
   yesNoUnsure('ded.selfed.any', D, 'Did you pay for study, a course or training this year?', {
-    occupationTags: ['self_education'], atoRef: ATO.selfEd, feeds: ['deductions'],
+    atoRef: ATO.selfEd, feeds: ['deductions'],
     help: 'Courses, seminars, textbooks, student fees. Only study that relates to your current job counts; study for a new career does not.',
   }),
   ...deductionSet({
-    base: 'ded.selfed', module: D, category: 'self_education', atoRef: ATO.selfEd, occupationTags: ['self_education'], showIf: SELFED_ON,
+    base: 'ded.selfed', module: D, category: 'self_education', atoRef: ATO.selfEd, showIf: SELFED_ON,
     treatment: { byQuestion: Q.ded.selfEdRelated, map: { current_duties: 'D', new_role: 'N' }, fallback: 'R' },
     prompt: 'How much did you spend on the study or training?',
     help: 'Course fees, textbooks, stationery, travel to classes. Not HELP loan repayments.',
     purpose: [
+      single(Q.ded.selfEdSameCourse, D, 'Is this the same course you already entered under your job questions?', [
+        opt('same', 'Yes, it is the same course', 'It is counted once, under the job questions.'),
+        opt('different', 'No, it is a different course'),
+      ], { showIf: any(gt(Q.chef.coursesAmount, 0), gt(Q.dsw.trainingAmount, 0)), feeds: ['deductions'], help: 'Each course should have one record. Tuition is separate from HELP loan repayments, which are never deductible.' }),
       single(Q.ded.selfEdRelated, D, 'How does the study relate to your work?', [
         opt('current_duties', 'It maintains or improves skills I use in my current job', 'Or it is likely to increase your income from that job.'),
         opt('new_role', 'It is to get a new job, or a different career', 'Not deductible, even if related to your field.'),

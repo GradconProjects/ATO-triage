@@ -109,6 +109,7 @@ export const Q = {
     received: 'comp.received',          // multi screening: weekly | arrears | medical | impairment | economic_loss | common_law | interest | legal | income_protection | sickness | none | other | not_sure
     weeklyAmount: 'comp.weekly.amount', // money I
     weeklyWithheld: 'comp.weekly.withheld', // money credit
+    weeklyIncludesArrears: 'comp.weekly.includes_arrears', // single: yes | no | not_sure: does the gross include the arrears?
     arrearsAmount: 'comp.arrears.amount', // money I (lump sum E)
     medicalAmount: 'comp.medical.amount', // money N
     impairmentAmount: 'comp.impairment.amount', // money R
@@ -302,6 +303,10 @@ export const Q = {
     wfhHoursRecord: 'ded.wfh.hours_record', // single: full_record | representative_4_weeks | estimate | none | not_sure
     wfhActualCosts: 'ded.wfh.actual_costs', // money
     wfhWorkPct: 'ded.wfh.work_pct',
+    wfhActivities: 'ded.wfh.activities',   // multi: employment | business | study | not_sure (separate home-activity records)
+    wfhBusinessHours: 'ded.wfh.business_hours', // number: hours of business work at home (claimed under the business)
+    wfhStudyHours: 'ded.wfh.study_hours',  // number: hours of eligible self-education study at home
+    wfhHoursOverlap: 'ded.wfh.hours_overlap', // yes_no_unsure: are any hours counted in more than one activity?
     // Phone/internet
     phoneAmount: 'ded.phone.amount',
     phoneWorkPct: 'ded.phone.work_pct',
@@ -309,6 +314,7 @@ export const Q = {
     // Self-education
     selfEdRelated: 'ded.selfed.related', // single: current_duties | new_role | not_sure
     selfEdAmount: 'ded.selfed.amount',
+    selfEdSameCourse: 'ded.selfed.same_course', // single: same | different | not_sure
     // Union, subscriptions, sun, tax affairs, gifts, income protection
     unionAmount: 'ded.union.amount',
     subscriptionsAmount: 'ded.subscriptions.amount',

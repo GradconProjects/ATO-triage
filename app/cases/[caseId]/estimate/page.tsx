@@ -9,6 +9,7 @@ import { loadCaseState } from '@/src/lib/case-state';
 import { runCalculation } from '@/src/lib/calc-run';
 import { formatMoney } from '@/src/lib/utils';
 import type { EstimateSection } from '@/src/calc/types';
+import { DISPLAY_STATUS_LABEL, displayStatus } from '@/src/calc/status';
 import { GenerateReportButton } from '@/components/interview/generate-report-button';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,7 @@ const SECTION_LABELS: Record<EstimateSection, string> = {
   credits: 'Credits and tax already paid',
   result: 'Result',
 };
+const STATUS_TONE = { confirmed: 'success', provisional: 'warning', excluded: 'neutral', deferred: 'neutral', review_affects: 'warning', review_may_affect: 'warning' } as const;
 const SECTION_ORDER: EstimateSection[] = ['income', 'deductions', 'taxable_income', 'gross_tax', 'offsets', 'phi_recovery', 'medicare', 'mls', 'study_loan', 'refundable_offsets', 'credits', 'result'];
 
 export default async function EstimatePage({ params }: { params: Promise<{ caseId: string }> }) {
@@ -81,7 +83,9 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
           </div>
           <div className="space-y-2 text-right">
             <Badge tone={tone}>Confidence: {intelligence.confidence.level}</Badge>
-            <p className="text-xs text-muted">{intelligence.completeness.pct}% complete</p>
+            <p className="text-xs text-muted">Interview {intelligence.completeness.pct}% complete</p>
+            <p className="text-xs text-muted">Evidence {intelligence.completeness.evidencePct ?? 100}% of claimed deductions</p>
+            <p className="text-xs text-muted">Calculation reliability: {intelligence.completeness.reliability?.level ?? 'not assessed'}</p>
             <GenerateReportButton caseId={caseId} allowFinal={intelligence.canFinalise} />
           </div>
         </div>
@@ -120,8 +124,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
                     <tr key={l.id} className={l.status !== 'computed' ? 'text-muted' : ''}>
                       <td className="px-4 py-2 align-top">
                         {l.label}
-                        {l.status === 'manual_review' ? <Badge tone="warning" className="ml-2">manual review</Badge> : null}
-                        {l.status === 'excluded' ? <Badge className="ml-2">excluded</Badge> : null}
+                        <Badge tone={STATUS_TONE[displayStatus(l, estimate)]} className="ml-2">{DISPLAY_STATUS_LABEL[displayStatus(l, estimate)]}</Badge>
                         {l.note ? <p className="text-xs text-muted">{l.note}</p> : null}
                       </td>
                       <td className="px-4 py-2 text-right align-top tabular-nums">{formatMoney(l.amountCents)}</td>

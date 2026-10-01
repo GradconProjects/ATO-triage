@@ -65,7 +65,12 @@ export function computeCar(cx: CalcContext): number {
     }
     if (trips.includes('home_to_work')) {
       const exception = cx.a.string(Q.ded.carException);
-      const exceptionApplies = exception === 'bulky_no_storage' || exception === 'itinerant' || exception === 'home_base';
+      // "Home as a base of work" is rare and depends on the facts (starting some work at home is
+      // not enough), so it is never accepted automatically: it goes to review.
+      if (exception === 'home_base') {
+        return toReview('Home-to-work trips with a claimed "home base" exception: whether home was a genuine base of work depends on the actual conditions, so this is assessed manually.', [Q.ded.carException, Q.ded.carTripTypes, Q.ded.carKm], Math.min(km, rules.carMaxKm) * rules.carCentsPerKm, `${km} km (home-base exception to be assessed) x ${rules.carCentsPerKm}c`);
+      }
+      const exceptionApplies = exception === 'bulky_no_storage' || exception === 'itinerant';
       const onlyHomeToWork = trips.every((t) => t === 'home_to_work');
       if (!exceptionApplies) {
         const amount = cappedKm * rate;
