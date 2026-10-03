@@ -1,6 +1,7 @@
 import { Q } from '../../questions/ids';
 import type { CalcContext } from '../context';
 import { pct } from '../money';
+import { resolvePaid, weakEvidence } from '../reimbursement';
 
 /**
  * Home-to-work exceptions ticked (multi choice). Answers saved while the question was single
@@ -12,7 +13,6 @@ export function carExceptions(a: { list(id: string): string[] | undefined; strin
   const one = a.string(Q.ded.carException);
   return one ? [one] : [];
 }
-import { resolvePaid, weakEvidence } from '../reimbursement';
 
 const CAR_BASE = 'ded.car';
 
@@ -54,26 +54,30 @@ export function computeCar(cx: CalcContext): number {
     return 0;
   };
 
-  let gross: number;
-  let formula: string;
-  let detail: Record<string, string | number | boolean | null | undefined>;
-  const extraInputs: string[] = [];
-  if (method === 'cents_per_km') {
-    if (km === undefined) return toReview('Work kilometres not answered.', [Q.ded.carKm], 0, 'km x rate (km missing)');
-    const twoCars = cx.a.string(Q.ded.carCount) === 'two';
-    const km2 = twoCars ? cx.a.number(Q.ded.carKm2) : undefined;
-    const rate = rules.carCentsPerKm;
-    // The 5,000 km cap applies to each car separately.
-    const cars = twoCars && km2 !== undefined ? [km, km2] : [km];
-    const cappedKm = cars.reduce((sum, k) => sum + Math.min(k, rules.carMaxKm), 0);
-    const totalKm = cars.reduce((sum, k) => sum + k, 0);
-    const kmText = cars.length === 2 ? `(${cars.map((k) => `${Math.min(k, rules.carMaxKm)}${k > rules.carMaxKm ? ` capped from ${k}` : ''}`).join(' + ')}) km` : `${cappedKm} km${km > rules.carMaxKm ? ` (capped from ${km})` : ''}`;
-    const kmIds = twoCars ? [Q.ded.carKm, Q.ded.carCount, Q.ded.carKm2] : [Q.ded.carKm];
-    if (twoCars && km2 === undefined) return toReview('Second car kilometres not answered.', [Q.ded.carKm2], cappedKm * rate, `${kmText} x ${rate}c (second car km missing)`);
+  type Detail = Record<string, string | number | boolean | null | undefined>;
+  type CarPart =
+    | { kind: 'ok'; gross: number; formula: string; detail: Detail; ids: string[] }
+    | { kind: 'review'; reason: string; ids: string[]; amount: number; formula: string }
+    | { kind: 'excluded'; reason: string; ids: string[]; amount: number; formula: string };
+  const rate = rules.carCentsPerKm;
+  const twoCars = cx.a.string(Q.ded.carCount) === 'two' && (method === 'cents_per_km' || method === 'logbook');
+  // The second car may use a different method; answers saved before it was asked use the first car's.
+  const method2 = twoCars ? (cx.a.string(Q.ded.carMethod2) ?? (cx.a.has(Q.ded.carMethod2) ? undefined : method)) : undefined;
+
+  // Cents per km for one car: its own 5,000 km cap; home-to-work trips need an exception.
+  const centsPerKm = (n: 1 | 2): CarPart => {
+    const kmId = n === 1 ? Q.ded.carKm : Q.ded.carKm2;
+    const carKm = cx.a.number(kmId);
+    const name = twoCars ? `car ${n}: ` : '';
+    if (carKm === undefined) return { kind: 'review', reason: `${twoCars ? `Car ${n}: w` : 'W'}ork kilometres not answered.`, ids: [kmId], amount: 0, formula: `${name}km x rate (km missing)` };
+    const capped = Math.min(carKm, rules.carMaxKm);
+    const kmText = `${capped} km${carKm > rules.carMaxKm ? ` (capped from ${carKm})` : ''}`;
+    const amount = capped * rate;
     const trips = cx.a.list(Q.ded.carTripTypes);
     if (!trips || trips.length === 0 || trips.includes('not_sure')) {
-      return toReview('Trip types not answered, so home-to-work travel cannot be separated.', [Q.ded.carTripTypes], cappedKm * rate, `${totalKm} km x ${rate}c (trip types missing)`);
+      return { kind: 'review', reason: 'Trip types not answered, so home-to-work travel cannot be separated.', ids: [Q.ded.carTripTypes], amount, formula: `${name}${carKm} km x ${rate}c (trip types missing)` };
     }
+    const ids: string[] = [kmId, Q.ded.carTripTypes];
     if (trips.includes('home_to_work')) {
       const exceptions = carExceptions(cx.a);
       // Bulky tools with no storage, or itinerant work, each make the trips work travel on their own.
@@ -81,44 +85,59 @@ export function computeCar(cx: CalcContext): number {
       // "Home as a base of work" is rare and depends on the facts (starting some work at home is
       // not enough), so when it is the only exception it is never accepted automatically: review.
       if (!exceptionApplies && exceptions.includes('home_base')) {
-        return toReview('Home-to-work trips with a claimed "home base" exception: whether home was a genuine base of work depends on the actual conditions, so this is assessed manually.', [Q.ded.carException, Q.ded.carTripTypes, Q.ded.carKm], Math.min(km, rules.carMaxKm) * rules.carCentsPerKm, `${km} km (home-base exception to be assessed) x ${rules.carCentsPerKm}c`);
+        return { kind: 'review', reason: 'Home-to-work trips with a claimed "home base" exception: whether home was a genuine base of work depends on the actual conditions, so this is assessed manually.', ids: [Q.ded.carException, ...ids], amount, formula: `${name}${carKm} km (home-base exception to be assessed) x ${rate}c` };
       }
       if (!exceptionApplies && (exceptions.includes('not_sure') || cx.a.isNotSure(Q.ded.carException))) {
-        return toReview('Not sure whether an exception applied to the home-to-work trips; they are held for review, not claimed or dropped.', [Q.ded.carException, Q.ded.carTripTypes, ...kmIds], cappedKm * rate, `${totalKm} km (exception not confirmed) x ${rate}c`);
+        return { kind: 'review', reason: 'Not sure whether an exception applied to the home-to-work trips; they are held for review, not claimed or dropped.', ids: [Q.ded.carException, ...ids], amount, formula: `${name}${carKm} km (exception not confirmed) x ${rate}c` };
       }
-      const onlyHomeToWork = trips.every((t) => t === 'home_to_work');
       if (!exceptionApplies) {
-        const amount = cappedKm * rate;
-        if (onlyHomeToWork) return toExcluded('Ordinary home-to-work travel is private and cannot be claimed.', [Q.ded.carTripTypes, Q.ded.carException], amount, `${totalKm} km home-to-work x ${rate}c (excluded)`);
-        return toReview('Kilometres include home-to-work trips with no exception; the work-only kilometres must be separated before claiming.', [Q.ded.carTripTypes, Q.ded.carException, ...kmIds], amount, `${totalKm} km (mixed trips) x ${rate}c`);
+        if (trips.every((t) => t === 'home_to_work')) return { kind: 'excluded', reason: 'Ordinary home-to-work travel is private and cannot be claimed.', ids: [Q.ded.carTripTypes, Q.ded.carException], amount, formula: `${name}${carKm} km home-to-work x ${rate}c (excluded)` };
+        return { kind: 'review', reason: 'Kilometres include home-to-work trips with no exception; the work-only kilometres must be separated before claiming.', ids: [Q.ded.carTripTypes, Q.ded.carException, kmId], amount, formula: `${name}${carKm} km (mixed trips) x ${rate}c` };
       }
-      extraInputs.push(Q.ded.carException);
+      ids.push(Q.ded.carException);
     }
-    gross = cappedKm * rate;
-    formula = `${kmText} x ${rate}c`;
-    detail = { method: 'cents_per_km', cars: cars.length, km: totalKm, cappedKm, centsPerKm: rate, tripTypes: trips.join(','), ...(cars.length === 2 ? { car1Km: km, car2Km: km2 } : {}) };
-    extraInputs.push(...kmIds, Q.ded.carTripTypes);
-  } else if (method === 'logbook') {
-    const costs = cx.a.cents(Q.ded.carTotalCosts);
-    const lp = cx.a.number(Q.ded.carLogbookPct);
-    if (costs === undefined || lp === undefined) return toReview('Logbook method needs total car costs and the logbook work percentage.', [Q.ded.carTotalCosts, Q.ded.carLogbookPct], costs ?? 0, 'total costs x logbook % (missing)');
-    gross = pct(costs, lp);
-    formula = `${costs / 100} x ${lp}% logbook`;
-    detail = { method: 'logbook', totalCostsCents: costs, logbookPct: lp };
-    extraInputs.push(Q.ded.carTotalCosts, Q.ded.carLogbookPct);
-    if (cx.a.string(Q.ded.carCount) === 'two') {
-      // Each car is worked out from its own logbook and its own costs.
-      const costs2 = cx.a.cents(Q.ded.carTotalCosts2);
-      const lp2 = cx.a.number(Q.ded.carLogbookPct2);
-      if (costs2 === undefined || lp2 === undefined) return toReview('Second car: its own logbook percentage and running costs are needed.', [Q.ded.carTotalCosts2, Q.ded.carLogbookPct2], gross, `${formula} (second car missing)`);
-      gross += pct(costs2, lp2);
-      formula = `${formula} + second car ${costs2 / 100} x ${lp2}% logbook`;
-      detail = { ...detail, cars: 2, totalCosts2Cents: costs2, logbookPct2: lp2 };
-      extraInputs.push(Q.ded.carCount, Q.ded.carTotalCosts2, Q.ded.carLogbookPct2);
-    }
-  } else {
-    return toReview(cx.a.isNotSure(Q.ded.carMethod) ? 'Not sure which car method applies.' : 'Car method not answered.', [Q.ded.carMethod], 0, 'method unknown');
+    return { kind: 'ok', gross: amount, formula: `${name}${kmText} x ${rate}c`, detail: { method: 'cents_per_km', km: carKm, cappedKm: capped, centsPerKm: rate, tripTypes: trips.join(',') }, ids };
+  };
+
+  // Logbook for one car: that car's own costs x its own logbook percentage.
+  const logbook = (n: 1 | 2): CarPart => {
+    const costsId = n === 1 ? Q.ded.carTotalCosts : Q.ded.carTotalCosts2;
+    const pctId = n === 1 ? Q.ded.carLogbookPct : Q.ded.carLogbookPct2;
+    const costs = cx.a.cents(costsId);
+    const lp = cx.a.number(pctId);
+    const name = twoCars ? `car ${n}: ` : '';
+    if (costs === undefined || lp === undefined) return { kind: 'review', reason: `${twoCars ? `Car ${n}: the` : 'The'} logbook method needs total car costs and the logbook work percentage.`, ids: [costsId, pctId], amount: costs ?? 0, formula: `${name}total costs x logbook % (missing)` };
+    return { kind: 'ok', gross: pct(costs, lp), formula: `${name}${costs / 100} x ${lp}% logbook`, detail: { method: 'logbook', totalCostsCents: costs, logbookPct: lp }, ids: [costsId, pctId] };
+  };
+
+  const partFor = (n: 1 | 2, m: string | undefined): CarPart => {
+    if (m === 'cents_per_km') return centsPerKm(n);
+    if (m === 'logbook') return logbook(n);
+    const id = n === 1 ? Q.ded.carMethod : Q.ded.carMethod2;
+    return { kind: 'review', reason: cx.a.isNotSure(id) ? `Not sure which method applies${n === 2 ? ' to the second car' : ''}.` : `${n === 2 ? 'Second car' : 'Car'} method not answered.`, ids: [id], amount: 0, formula: 'method unknown' };
+  };
+
+  const parts = twoCars ? [partFor(1, method), partFor(2, method2)] : [partFor(1, method)];
+  const extraIds = twoCars ? [Q.ded.carCount, Q.ded.carMethod2] : [];
+  const reviewPart = parts.find((p): p is Extract<CarPart, { kind: 'review' }> => p.kind === 'review');
+  if (reviewPart) {
+    const amount = parts.reduce((sum, p) => sum + (p.kind === 'ok' ? p.gross : p.amount), 0);
+    return toReview(reviewPart.reason, [...extraIds, ...parts.flatMap((p) => p.ids)], amount, parts.map((p) => p.formula).join(' + '));
   }
+  const okParts = parts.filter((p): p is Extract<CarPart, { kind: 'ok' }> => p.kind === 'ok');
+  if (okParts.length === 0) {
+    const ex = parts.find((p): p is Extract<CarPart, { kind: 'excluded' }> => p.kind === 'excluded')!;
+    return toExcluded(ex.reason, [...extraIds, ...parts.flatMap((p) => p.ids)], parts.reduce((sum, p) => sum + (p.kind === 'excluded' ? p.amount : 0), 0), parts.map((p) => p.formula).join(' + '));
+  }
+  const excludedParts = parts.filter((p): p is Extract<CarPart, { kind: 'excluded' }> => p.kind === 'excluded');
+  const gross = okParts.reduce((sum, p) => sum + p.gross, 0);
+  const formula = parts.map((p) => p.formula).join(' + ');
+  const detail: Detail = twoCars
+    ? { method: method === method2 ? method : 'mixed', cars: 2, car1Method: method, car2Method: method2, ...Object.fromEntries(parts.flatMap((p, i) => (p.kind === 'ok' ? Object.entries(p.detail).map(([k, v]) => [`car${i + 1}${k[0]!.toUpperCase()}${k.slice(1)}`, v]) : []))) }
+    : okParts[0]!.detail;
+  const extraInputs = [...extraIds, ...parts.flatMap((p) => p.ids)];
+  const methodLabel = twoCars && method !== method2 ? `car 1 ${method === 'logbook' ? 'logbook' : 'cents per km'}, car 2 ${method2 === 'logbook' ? 'logbook' : 'cents per km'}` : method === 'logbook' ? 'logbook' : 'cents per km';
+  const exclusionNote = excludedParts.length ? excludedParts.map((p) => p.reason).join(' ') : undefined;
 
   const paid = resolvePaid(cx, CAR_BASE, null, gross);
   if (paid.kind === 'excluded') return toExcluded(paid.note ?? 'Reimbursed.', paid.inputs, gross, formula);
@@ -127,9 +146,9 @@ export function computeCar(cx: CalcContext): number {
   if (weakEvidence(cx, CAR_BASE, null)) cx.markUncertain(Q.ded.carKm, Q.ded.carKm2, Q.ded.carTotalCosts, Q.ded.carTotalCosts2);
   cx.setStatus('car', 'computed');
   cx.lines.computed({
-    id: 'ded.car', section: 'deductions', label: `Car expenses (${method === 'logbook' ? 'logbook' : 'cents per km'})`, amountCents: net,
+    id: 'ded.car', section: 'deductions', label: `Car expenses (${methodLabel})`, amountCents: net,
     ruleId: `${rules.fy}.car`, inputs: [...inputs, ...extraInputs, ...paid.inputs], formula: paid.reimbursedCents ? `${formula} - ${paid.reimbursedCents / 100} reimbursed` : formula,
-    category: 'car', detail, ...(paid.note ? { note: paid.note } : {}),
+    category: 'car', detail, ...(paid.note || exclusionNote ? { note: [paid.note, exclusionNote].filter(Boolean).join(' ') } : {}),
   });
   return net;
 }

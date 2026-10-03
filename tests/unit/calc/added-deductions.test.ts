@@ -73,3 +73,37 @@ describe('two cars on the logbook method', () => {
     expect(g.input.visible.has(Q.ded.carLogbookPct2)).toBe(true);
   });
 });
+
+describe('each car can use its own method', () => {
+  const base = [a(Q.ded.carAny, 'yes'), a(Q.ded.carTripTypes, ['between_workplaces']), a(Q.ded.carPaid, 'paid_not_reimbursed'), a(Q.ded.carEvidence, 'logbook'), a(Q.ded.carCount, 'two')];
+  it('car 1 logbook, car 2 cents per km', () => {
+    const est = run([...base, a(Q.ded.carMethod, 'logbook'), a(Q.ded.carTotalCosts, c(13000)), a(Q.ded.carLogbookPct, 80), a(Q.ded.carMethod2, 'cents_per_km'), a(Q.ded.carKm2, 6000)]);
+    const l = lineById(est, 'ded.car');
+    // 10,400 + 5,000 km cap x 88c = 4,400
+    expect(l.amountCents).toBe(c(10400) + 5000 * 88);
+    expect(l.label).toContain('car 1 logbook, car 2 cents per km');
+  });
+  it('car 1 cents per km, car 2 logbook', () => {
+    const est = run([...base, a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carKm, 1000), a(Q.ded.carMethod2, 'logbook'), a(Q.ded.carTotalCosts2, c(4000)), a(Q.ded.carLogbookPct2, 25)]);
+    expect(lineById(est, 'ded.car').amountCents).toBe(1000 * 88 + c(1000));
+  });
+  it('answers saved before the second-car method was asked use the first car\'s method', () => {
+    const est = run([...base, a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carKm, 4500), a(Q.ded.carKm2, 5000)]);
+    expect(lineById(est, 'ded.car').amountCents).toBe((4500 + 5000) * 88);
+  });
+  it('home-to-work trips with no exception affect only the cents-per-km car', () => {
+    const est = run([...base.filter((x) => x.id !== Q.ded.carTripTypes), a(Q.ded.carTripTypes, ['home_to_work']), a(Q.ded.carException, ['none']), a(Q.ded.carMethod, 'logbook'), a(Q.ded.carTotalCosts, c(10000)), a(Q.ded.carLogbookPct, 50), a(Q.ded.carMethod2, 'cents_per_km'), a(Q.ded.carKm2, 1000)]);
+    const l = lineById(est, 'ded.car');
+    expect(l.status).toBe('computed');
+    expect(l.amountCents).toBe(c(5000));
+    expect(l.note).toContain('home-to-work');
+  });
+  it('the second car\'s fields follow its own method', () => {
+    const g = runGolden({ fy: '2025-26', answers: [a(Q.core.fy, '2025-26'), a(Q.ded.carAny, 'yes'), a(Q.ded.carMethod, 'logbook'), a(Q.ded.carCount, 'two'), a(Q.ded.carMethod2, 'cents_per_km')], profileOccupations: ['disability_support_worker'] });
+    expect(g.input.visible.has(Q.ded.carMethod2)).toBe(true);
+    expect(g.input.visible.has(Q.ded.carKm2)).toBe(true);
+    expect(g.input.visible.has(Q.ded.carLogbookPct2)).toBe(false);
+    expect(g.input.visible.has(Q.ded.carKm)).toBe(false);
+  });
+});
+

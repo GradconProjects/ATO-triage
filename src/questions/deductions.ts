@@ -13,7 +13,7 @@
 import type { Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
 import {
-  ATO, all, any, deductionSet, eq, evidenceQuestion, flatten, gt, includes, isIn, jobQuestion, km, money, multi, noneOption, not, num, occ, opt, otherText,
+  ATO, all, answered, any, deductionSet, eq, evidenceQuestion, flatten, gt, includes, isIn, jobQuestion, km, money, multi, noneOption, not, num, occ, opt, otherText,
   paidQuestion, percent, repeater, screening, single, text, yes, yesNoUnsure,
 } from './shared';
 
@@ -22,6 +22,9 @@ const TOOL = GROUPS.toolItem;
 
 // ---- Shared visibility conditions (generic screen OR deep-module trigger) ----
 const CAR_ON = yes(Q.ded.carAny);
+const TWO_CARS = all(CAR_ON, eq(Q.ded.carCount, 'two'));
+// Second car's method: its own answer, or (answers saved before it was asked) the first car's.
+const CAR2_METHOD = (m: string) => all(TWO_CARS, any(eq(Q.ded.carMethod2, m), all(not(answered(Q.ded.carMethod2)), eq(Q.ded.carMethod, m))));
 const TRAVEL_ON = yes('ded.travel.any');
 const OVERNIGHT_ON = any(yes('ded.overnight.any'), yes(Q.con.overnight));
 const CLOTHING_ON = yes('ded.clothing.any');
@@ -77,18 +80,22 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   single(Q.ded.carMethod, D, 'Which method do you want to use for car expenses?', [
     opt('cents_per_km', 'Cents per kilometre (up to 5,000 work km, no receipts needed)', 'A set rate per work kilometre covers all running costs. You need a reasonable basis for the kilometres, such as a diary of trips.'),
     opt('logbook', 'Logbook (work percentage of actual costs)', 'Needs a 12-week logbook plus records of all car costs. Usually better for high work use.'),
-  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR_ON, feeds: ['deductions'], calc: { special: 'car' }, help: 'You can use only one method per car per year.' }),
+  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR_ON, feeds: ['deductions'], calc: { special: 'car' }, help: 'One method per car per year. If you used two cars, this is for the first; the second can use a different method.' }),
   single(Q.ded.carCount, D, 'How many of your own cars did you use for work trips?', [
     opt('one', 'One car'),
-    opt('two', 'Two cars', 'Cents per km: each car has its own 5,000 km limit. Logbook: each car needs its own logbook.'),
+    opt('two', 'Two cars', 'Each car is worked out separately, and can use a different method.'),
   ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, isIn(Q.ded.carMethod, ['cents_per_km', 'logbook'])), feeds: ['deductions'], calc: { special: 'car' } }),
+  single(Q.ded.carMethod2, D, 'Which method do you want to use for the second car?', [
+    opt('cents_per_km', 'Cents per kilometre (up to 5,000 work km for this car)', 'Its own 5,000 km limit, separate from the first car.'),
+    opt('logbook', 'Logbook (work percentage of this car\'s actual costs)', 'Needs this car\'s own 12-week logbook and cost records.'),
+  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: TWO_CARS, feeds: ['deductions'], calc: { special: 'car' }, help: 'It can be the same as the first car or different.' }),
   km(Q.ded.carKm, D, 'How many work kilometres did you drive this year (first car, if you used two)?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km')), feeds: ['deductions'], calc: { special: 'car' },
     validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
     help: 'Only the work trips ticked above. Do not include private trips or ordinary commuting.',
   }),
   km(Q.ded.carKm2, D, 'How many work kilometres did you drive in the second car?', {
-    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR2_METHOD('cents_per_km'), feeds: ['deductions'], calc: { special: 'car' },
     validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
     help: 'Only work trips in the second car. The 5,000 km limit applies to each car separately.',
   }),
@@ -102,11 +109,11 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     help: 'Fuel, registration, insurance, servicing, interest on a car loan, and decline in value. Before applying the work percentage.',
   }),
   percent(Q.ded.carLogbookPct2, D, 'What work-use percentage does the second car\'s logbook show?', {
-    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR2_METHOD('logbook'), feeds: ['deductions'], calc: { special: 'car' },
     help: 'From the second car\'s own 12-week logbook.',
   }),
   money(Q.ded.carTotalCosts2, D, 'What were the total running costs of the second car for the year?', {
-    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR2_METHOD('logbook'), feeds: ['deductions'], calc: { special: 'car' },
     validation: [{ kind: 'min', value: 0 }],
     help: 'Fuel, servicing, insurance, registration, interest and decline in value for the second car only.',
   }),
