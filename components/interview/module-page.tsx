@@ -22,6 +22,10 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   const store = useInterviewStore();
   const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   const [estimate, setEstimate] = useState<LiveEstimateSummary | null>(null);
+  const [previousEstimate, setPreviousEstimate] = useState<LiveEstimateSummary | null>(null);
+  const [estimateState, setEstimateState] = useState<'idle' | 'updating' | 'failed'>('idle');
+  const estimateSeq = useRef(0);
+  const latestEstimate = useRef<LiveEstimateSummary | null>(null);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readOnly = initial.status === 'final';
 
@@ -48,15 +52,30 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   const prev = idx > 0 ? order[idx - 1] : undefined;
   const next = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : undefined;
 
+  // Recalculate after every saved change. Only the newest request may update the panel, and a failed
+  // request is retried once before the panel says it could not update.
   const refreshEstimate = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/cases/${initial.caseId}/calculate`, { method: 'POST' });
-      if (!res.ok) return;
-      const data = (await res.json()) as { summary: LiveEstimateSummary };
-      setEstimate(data.summary);
-    } catch {
-      /* network error: keep the last estimate */
+    const seq = ++estimateSeq.current;
+    setEstimateState('updating');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/cases/${initial.caseId}/calculate`, { method: 'POST' });
+        if (res.ok) {
+          const data = (await res.json()) as { summary: LiveEstimateSummary };
+          if (seq !== estimateSeq.current) return;
+          setPreviousEstimate(latestEstimate.current);
+          latestEstimate.current = data.summary;
+          setEstimate(data.summary);
+          setEstimateState('idle');
+          return;
+        }
+      } catch {
+        /* network error: retry once */
+      }
+      if (seq !== estimateSeq.current) return;
+      await new Promise((r) => setTimeout(r, 1500));
     }
+    if (seq === estimateSeq.current) setEstimateState('failed');
   }, [initial.caseId]);
 
   // ---- autosave ----
@@ -121,6 +140,7 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
     if (!res.ok) return;
     const data = (await res.json()) as { state: ClientCaseState };
     store.applyServer(data.state.answers, data.state.items);
+    void refreshEstimate();
   }
 
   async function removeItem(itemId: string) {
@@ -130,6 +150,7 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
     if (!res.ok) return;
     const data = (await res.json()) as { state: ClientCaseState };
     store.applyServer(data.state.answers, data.state.items);
+    void refreshEstimate();
   }
 
   async function goNext() {
@@ -229,11 +250,11 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
         </div>
       </div>
       <div className="hidden lg:block">
-        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimate === null} />
+        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} previous={previousEstimate} updating={estimateState === 'updating'} failed={estimateState === 'failed'} loading={estimate === null} />
         <p className="mt-3 text-xs text-muted">{progress.overall}% of visible required questions answered.</p>
       </div>
       <div className="lg:hidden">
-        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} loading={estimate === null} />
+        <LiveEstimatePanel caseId={initial.caseId} summary={estimate} previous={previousEstimate} updating={estimateState === 'updating'} failed={estimateState === 'failed'} loading={estimate === null} />
       </div>
       {specs.length === 0 ? null : null}
     </div>

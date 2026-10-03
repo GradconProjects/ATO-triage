@@ -17,7 +17,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ca
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-  if (!rateLimit(`calc:${user.id}`, 60, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  if (!rateLimit(`calc:${user.id}`, 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   const state = await loadCaseState(supabase, user.id, caseId);
   if (!state) return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -43,5 +43,9 @@ export function summarise(run: CalcRun) {
     blockers: intelligence.flags.filter((f) => f.severity === 'blocker').length,
     completenessPct: intelligence.completeness.pct,
     manualReviewCount: estimate.manualReview.length,
+    // Amounts held for review are not in the result until confirmed.
+    notCountedCents: estimate.manualReview.reduce((s, r) => s + Math.abs(r.amountCents ?? 0), 0),
+    // At nil tax, extra deductions cannot change the result (only withholding and refundable offsets do).
+    nilTax: estimate.totals.grossTaxCents === 0 && estimate.totals.medicareLevyCents === 0,
   };
 }
