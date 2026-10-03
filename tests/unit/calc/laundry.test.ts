@@ -35,7 +35,7 @@ describe('laundry', () => {
   it('no eligible clothing -> review', () => {
     const est = run([a(Q.ded.clothingType, ['plain']), a(Q.ded.laundryAny, 'yes'), a(Q.ded.laundryLoadsWorkOnly, 3), a(Q.ded.laundryWeeks, 48)]);
     expect(lineById(est, 'ded.laundry').status).toBe('manual_review');
-    expect(est.totals.deductionsCents).toBe(0);
+    expect(lineById(est, 'ded.laundry').provisional).toBe(true);
   });
   it('DSW laundry with a logo uniform', () => {
     expect(lineById(run([a(Q.dsw.clothing, ['compulsory_logo']), a(Q.dsw.laundry, 'yes'), a(Q.ded.laundryLoadsWorkOnly, 2), a(Q.ded.laundryWeeks, 50), a(Q.ded.laundryEvidence, 'receipts')]), 'ded.laundry').amountCents).toBe(10000);

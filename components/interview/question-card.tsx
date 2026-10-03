@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { questionAnchor } from '@/src/lib/question-links';
 import type { AnswerRecord, CaseContext, DateRangeValue, Option, Question } from '@/src/engine/types';
 import { formatCents, fyDateBounds, parseMoneyToCents, validateAnswer } from '@/src/engine/validation';
 import { cn } from '@/src/lib/utils';
@@ -69,6 +70,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
   return (
     <div
       className={cn('rounded-lg border bg-card p-4', errors.length ? 'border-red-300' : isSkipped ? 'border-amber-300' : 'border-border')}
+      id={questionAnchor(q.id, itemId)}
       data-question-id={q.id}
       data-item-id={itemId ?? undefined}
     >

@@ -37,7 +37,12 @@ interface IncomeItem {
   treatment: IncomeTreatment;
   note?: string;
   key: string;
+  /** Review only: keep out of the provisional estimate (see EstimateLine.heldOut). */
+  heldOut?: boolean;
 }
+
+/** Review amounts usually not taxed at marginal rates, or that would be double counted: held out. */
+const HELD_OUT_INCOME = new Set<string>([Q.comp.impairmentAmount, Q.comp.economicLossAmount, Q.comp.commonLawAmount, Q.comp.etpAmount, Q.sup.amount, Q.cgt.derivativesNet]);
 
 /** Ids the special income handlers own; the data-driven loop skips them. */
 export const SPECIAL_INCOME_IDS = new Set<string>([
@@ -81,9 +86,11 @@ function emit(cx: CalcContext, it: IncomeItem): number {
     });
     return 0;
   }
+  const heldOut = it.heldOut ?? HELD_OUT_INCOME.has(it.key.split('@')[0]!);
   cx.lines.review({
     id, section: 'income', label: it.label, amountCents: it.cents, ruleId: it.ruleId, inputs: it.inputs,
-    formula: it.formula, category: it.category, itemId: it.itemId, note: it.note ?? 'Needs manual review before it can be included.',
+    formula: it.formula, category: it.category, itemId: it.itemId, note: it.note ?? 'Needs manual review.',
+    ...(heldOut ? { heldOut: true } : {}),
   });
   cx.review('income', `${it.label}: ${it.note ?? 'treatment needs manual review'}`, it.inputs, it.cents);
   cx.markUncertain(it.key);
@@ -153,7 +160,7 @@ export function computeIncome(cx: CalcContext): IncomeResult {
     } else if (nature === undefined) {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance or reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `${cents / 100} (allowance vs reimbursement ${cx.a.isNotSure(Q.allow.nature, itemId) ? 'not sure' : 'not answered'})`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: cx.a.isNotSure(Q.allow.nature, itemId) ? 'Not sure whether this was an allowance or a reimbursement.' : 'Whether this was an allowance or a reimbursement has not been answered.' });
     } else if (nature === 'allowance' && type === 'lafha') {
-      add({ idPrefix: 'income.allowance', itemId, label: 'Living-away-from-home allowance', cents, category: 'allowance', inputs, formula: `${cents / 100} (LAFHA)`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: 'A living-away-from-home allowance is usually a fringe benefit, not your income, unless it is shown as an allowance on your income statement. Confirm before counting it.' });
+      add({ idPrefix: 'income.allowance', itemId, label: 'Living-away-from-home allowance', cents, category: 'allowance', inputs, formula: `${cents / 100} (LAFHA)`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, heldOut: true, note: 'A living-away-from-home allowance is usually a fringe benefit, not your income, unless it is shown as an allowance on your income statement. Confirm before counting it.' });
     } else if (nature === 'allowance') {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance (${type})`, cents, category: 'allowance', inputs, formula: `allowance ${cents / 100} assessable`, ruleId: `${fy}.income.allowance`, treatment: 'I', key });
     } else {
@@ -178,7 +185,7 @@ export function computeIncome(cx: CalcContext): IncomeResult {
         // Not confirmed: the part of the gross that is income either way is counted; only the
         // possible overlap with the arrears (already counted on its own line) is held for review.
         add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (excluding a possible overlap with the arrears)', cents: weekly - arrears, category: 'compensation', inputs, formula: `gross ${weekly / 100} - possible arrears overlap ${arrears / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
-        add({ idPrefix: `income.${Q.comp.weeklyAmount}.overlap`, itemId: null, label: 'WorkCover weekly payments: possible double count of the arrears', cents: arrears, category: 'compensation', inputs: [Q.comp.weeklyIncludesArrears, Q.comp.arrearsAmount], formula: `${arrears / 100} counted in income only if the gross does not already include the arrears`, ruleId: `${fy}.income.compensation`, treatment: 'R', key: Q.comp.weeklyIncludesArrears, note: 'Confirm whether the weekly gross already includes the lump sum E arrears. If it does not, this amount is also income.' });
+        add({ idPrefix: `income.${Q.comp.weeklyAmount}.overlap`, itemId: null, label: 'WorkCover weekly payments: possible double count of the arrears', cents: arrears, category: 'compensation', inputs: [Q.comp.weeklyIncludesArrears, Q.comp.arrearsAmount], formula: `${arrears / 100} counted in income only if the gross does not already include the arrears`, ruleId: `${fy}.income.compensation`, treatment: 'R', key: Q.comp.weeklyIncludesArrears, heldOut: true, note: 'Confirm whether the weekly gross already includes the lump sum E arrears. If it does not, this amount is also income.' });
       } else {
         add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments', cents: weekly, category: 'compensation', inputs, formula: `WorkCover weekly payments ${weekly / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
       }

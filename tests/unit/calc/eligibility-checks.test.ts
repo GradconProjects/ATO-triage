@@ -24,7 +24,8 @@ describe('car: home-base exception', () => {
   it('is assessed manually, never accepted automatically', () => {
     const est = run([a(Q.ded.carAny, 'yes'), a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carKm, 1000), a(Q.ded.carTripTypes, ['home_to_work']), a(Q.ded.carException, 'home_base')]);
     expect(lineById(est, 'ded.car').status).toBe('manual_review');
-    expect(est.totals.deductionsCents).toBe(0);
+    expect(lineById(est, 'ded.car').provisional).toBe(true);
+    expect(est.manualReview.some((r) => r.module === 'car')).toBe(true);
   });
 });
 

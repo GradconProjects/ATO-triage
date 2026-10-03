@@ -217,7 +217,9 @@ export function computeDeductions(cx: CalcContext): DeductionsResult {
       }
       if (r.treatment === 'R' || r.treatment === 'I') {
         const note = r.note ?? 'Deductibility needs manual review.';
-        cx.lines.review({ id: lid, section: 'deductions', label, amountCents: cents, ruleId: `${fy}.deduction.${meta.category}`, inputs, formula: `${cents / 100}: ${r.formula}`, note, category: meta.category, itemId, detail });
+        // A possible duplicate, or a capital item, would be wrong to count as entered: held out.
+        const heldOut = r.formula === 'possible duplicate course' || (meta.category === 'custom' && cx.scopedString(Q.ded.customConnection, itemId) === 'capital');
+        cx.lines.review({ id: lid, section: 'deductions', label, amountCents: cents, ruleId: `${fy}.deduction.${meta.category}`, inputs, formula: `${cents / 100}: ${r.formula}`, note, category: meta.category, itemId, detail, ...(heldOut ? { heldOut: true } : {}) });
         cx.review('deductions', `${label}: ${note}`, inputs, cents);
         cx.markUncertain(key);
         cx.setStatus('deductions', 'manual_review');

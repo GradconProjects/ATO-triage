@@ -75,6 +75,7 @@ export function declineInValueLine(cx: CalcContext, a: DeclineArgs): number {
       category: a.category,
       itemId: a.itemId,
       detail: { costCents: a.costCents, workPct: a.workPct },
+      heldOut: true,
     });
     return 0;
   }
@@ -100,6 +101,7 @@ export function declineInValueLine(cx: CalcContext, a: DeclineArgs): number {
         inputs: [...a.inputs, a.effectiveLifeQ, a.dateQ], formula: `first used ${date}, before this year: needs the opening adjustable value`,
         note: 'Enter the value at the start of this year (cost less earlier years\' decline). The purchase cost is not claimed again.', category: a.category, itemId: a.itemId,
         detail: { costCents: a.costCents, workPct: a.workPct },
+        heldOut: true,
       });
       return 0;
     }

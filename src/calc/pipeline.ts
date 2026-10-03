@@ -5,7 +5,8 @@ import type { CalcInput, Estimate, EstimateTotals } from './types';
 import { computeIncome } from './modules/income';
 import { computeRental } from './modules/rental';
 import { computeCgt } from './modules/cgt';
-import { computeDeductions } from './modules/deductions';
+import { computeDeductions, NON_WORK_CATEGORIES } from './modules/deductions';
+import type { DeductionCategory } from '../engine/types';
 import { computeCar } from './modules/car';
 import { computeHomeOffice } from './modules/home-office';
 import { computeLaundry } from './modules/laundry';
@@ -40,7 +41,7 @@ export function calculate(input: CalcInput): Estimate {
   const income = computeIncome(cx);
   const rentNet = computeRental(cx);
   const cgt = computeCgt(cx);
-  const assessable = income.assessableCents + rentNet + cgt.netCapitalGainCents;
+  const assessableConfirmed = income.assessableCents + rentNet + cgt.netCapitalGainCents;
 
   // 2. Deductions.
   const ded = computeDeductions(cx);
@@ -48,8 +49,34 @@ export function calculate(input: CalcInput): Estimate {
   const wfh = computeHomeOffice(cx);
   const laundry = computeLaundry(cx);
   const superDed = computeSuperDeduction(cx, income.rescCents);
-  const deductions = ded.deductionsCents + car + wfh + laundry + superDed;
-  const workRelated = ded.workRelatedCents + car + wfh + laundry;
+  const deductionsConfirmed = ded.deductionsCents + car + wfh + laundry + superDed;
+
+  // Amounts under review are counted provisionally, as entered, so the estimate reflects what has
+  // been answered; each stays flagged for review. A line marked heldOut is not counted (a likely
+  // double count, or an amount usually not taxed at marginal rates).
+  let provisionalIncome = 0;
+  let provisionalDeductions = 0;
+  let provisionalWorkRelated = 0;
+  let heldOut = 0;
+  for (const l of cx.lines.lines()) {
+    if (l.status !== 'manual_review' || l.informational || (l.section !== 'income' && l.section !== 'deductions')) continue;
+    if (l.heldOut) {
+      heldOut += Math.abs(l.amountCents);
+      continue;
+    }
+    l.provisional = true;
+    if (l.section === 'income') provisionalIncome += l.amountCents;
+    else {
+      provisionalDeductions += l.amountCents;
+      if (!NON_WORK_CATEGORIES.has(l.category as DeductionCategory)) provisionalWorkRelated += l.amountCents;
+    }
+  }
+  const assessable = assessableConfirmed + provisionalIncome;
+  const deductions = deductionsConfirmed + provisionalDeductions;
+  const workRelated = ded.workRelatedCents + car + wfh + laundry + provisionalWorkRelated;
+  if (provisionalIncome || provisionalDeductions) {
+    cx.assume(`Amounts under review are included provisionally as entered (income ${provisionalIncome / 100}, deductions ${provisionalDeductions / 100}); the result changes if the review finds otherwise.`);
+  }
 
   // 3. Taxable income.
   const rawTaxable = floorToDollar(assessable - deductions);
@@ -108,6 +135,9 @@ export function calculate(input: CalcInput): Estimate {
     capitalLossCarriedForwardCents: cgt.capitalLossCarriedForwardCents,
     workRelatedDeductionsCents: workRelated,
     phiLiabilityCents: phiRecovery,
+    provisionalIncomeCents: provisionalIncome,
+    provisionalDeductionsCents: provisionalDeductions,
+    heldOutCents: heldOut,
     refundableOffsetsCents: refundableOffsets,
   };
 

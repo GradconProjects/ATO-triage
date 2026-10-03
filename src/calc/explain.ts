@@ -20,6 +20,7 @@ export interface LineInit {
   detail?: EstimateLine['detail'];
   informational?: boolean;
   provisional?: boolean;
+  heldOut?: boolean;
 }
 
 /** Build one line with defaults (status computed, no inputs). */
@@ -40,6 +41,7 @@ export function line(init: LineInit): EstimateLine {
   if (init.detail !== undefined) out.detail = init.detail;
   if (init.informational) out.informational = true;
   if (init.provisional) out.provisional = true;
+  if (init.heldOut) out.heldOut = true;
   return out;
 }
 
@@ -72,7 +74,7 @@ export class LineBuilder {
     return this.add({ ...init, status: 'excluded' });
   }
 
-  /** Convenience: a manual-review line (amount shown, never counted). */
+  /** Convenience: a manual-review line (income and deduction lines are counted provisionally unless heldOut). */
   review(init: Omit<LineInit, 'status'> & { note: string }): EstimateLine {
     return this.add({ ...init, status: 'manual_review' });
   }

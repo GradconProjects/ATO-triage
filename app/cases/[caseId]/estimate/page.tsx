@@ -10,6 +10,7 @@ import { runCalculation } from '@/src/lib/calc-run';
 import { formatMoney } from '@/src/lib/utils';
 import type { EstimateSection } from '@/src/calc/types';
 import { DISPLAY_STATUS_LABEL, displayStatus } from '@/src/calc/status';
+import { questionLink } from '@/src/lib/question-links';
 import { GenerateReportButton } from '@/components/interview/generate-report-button';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ const SECTION_LABELS: Record<EstimateSection, string> = {
   credits: 'Credits and tax already paid',
   result: 'Result',
 };
-const STATUS_TONE = { confirmed: 'success', provisional: 'warning', excluded: 'neutral', deferred: 'neutral', review_affects: 'warning', review_may_affect: 'warning' } as const;
+const STATUS_TONE = { confirmed: 'success', provisional: 'warning', excluded: 'neutral', deferred: 'neutral', review_included: 'warning', review_affects: 'warning', review_may_affect: 'warning' } as const;
 const SECTION_ORDER: EstimateSection[] = ['income', 'deductions', 'taxable_income', 'gross_tax', 'offsets', 'phi_recovery', 'medicare', 'mls', 'study_loan', 'refundable_offsets', 'credits', 'result'];
 
 export default async function EstimatePage({ params }: { params: Promise<{ caseId: string }> }) {
@@ -126,6 +127,14 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
                         {l.label}
                         <Badge tone={STATUS_TONE[displayStatus(l, estimate)]} className="ml-2">{DISPLAY_STATUS_LABEL[displayStatus(l, estimate)]}</Badge>
                         {l.note ? <p className="text-xs text-muted">{l.note}</p> : null}
+                        {l.status === 'manual_review' && l.inputs[0] ? (() => {
+                          const link = questionLink(caseId, l.itemId ? `${l.inputs[0]}@${l.itemId}` : l.inputs[0]);
+                          return link ? (
+                            <Link href={link.href} className="text-xs text-primary underline">
+                              Check this answer
+                            </Link>
+                          ) : null;
+                        })() : null}
                       </td>
                       <td className="px-4 py-2 text-right align-top tabular-nums">{formatMoney(l.amountCents)}</td>
                       <td className="px-4 py-2 align-top text-xs text-muted">
@@ -145,8 +154,15 @@ export default async function EstimatePage({ params }: { params: Promise<{ caseI
       {estimate.manualReview.length ? (
         <section className="mt-8" aria-labelledby="manual">
           <h2 id="manual" className="text-lg font-semibold">
-            Routed to manual review
+            Needs review
           </h2>
+          <p className="mt-1 text-sm text-muted">
+            The figures above already use what you entered.{' '}
+            <Link href={`/cases/${caseId}/review#needs-review`} className="underline">
+              Open the Review tab
+            </Link>{' '}
+            to go to each item.
+          </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {estimate.manualReview.map((m, i) => (
               <li key={i}>

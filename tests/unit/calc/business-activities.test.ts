@@ -53,10 +53,11 @@ describe('separate business activities and deferred non-commercial losses', () =
     expect(est.deferredLosses?.[0]).toMatchObject({ usedCents: c(3500), closingCents: c(4000), status: 'none' });
   });
 
-  it('a ticked loss test sends the loss to review instead of deducting it', () => {
+  it('a ticked loss test flags the loss for review; it reduces income only provisionally', () => {
     const est = run([...salary, ...signals([a(Q.bus.activityLossTests, ['income_20k'], SIG)])], { items });
     expect(lineById(est, `income.business.activity@${SIG}`).status).toBe('manual_review');
-    expect(est.totals.taxableIncomeCents).toBe(c(80000));
+    expect(lineById(est, `income.business.activity@${SIG}`).provisional).toBe(true);
+    expect(est.totals.taxableIncomeCents).toBe(c(72500));
     expect(est.deferredLosses?.[0]?.status).toBe('review');
   });
 

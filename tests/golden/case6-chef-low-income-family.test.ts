@@ -149,12 +149,15 @@ describe('golden 6: low-income chef, duplicate course, high-income spouse', () =
     expect(lineById(est, `ded.${Q.chef.coursesAmount}`).status).toBe('computed');
     expect(lineById(est, `ded.${Q.ded.selfEdAmount}`).status).toBe('excluded');
   });
-  it('deductions 7,690 and taxable income 4,462', () => {
-    expect(est.totals.deductionsCents).toBe(c(7690));
-    expect(est.totals.taxableIncomeCents).toBe(c(4462));
+  it('confirmed deductions 7,690; the car claim under review is counted provisionally', () => {
+    // 7,690 confirmed + car 1,580 km x 88c = 1,390.40 provisional (mixed home-to-work trips).
+    expect(est.totals.deductionsCents - (est.totals.provisionalDeductionsCents ?? 0)).toBe(c(7690));
+    expect(est.totals.provisionalDeductionsCents).toBe(139040);
+    expect(est.totals.taxableIncomeCents).toBe(c(3071));
   });
-  it('home-to-work car trips with no exception go to review, not into deductions', () => {
+  it('home-to-work car trips with no exception are flagged for review and marked provisional', () => {
     expect(lineById(est, 'ded.car').status).toBe('manual_review');
+    expect(lineById(est, 'ded.car').provisional).toBe(true);
     expect(est.manualReview.some((r) => r.questionIds?.includes(Q.ded.carException) || /car/i.test(r.reason))).toBe(true);
   });
   it('no tax, no Medicare levy, no surcharge (own income below the low-income threshold, s 8D(3)(c))', () => {
@@ -166,11 +169,13 @@ describe('golden 6: low-income chef, duplicate course, high-income spouse', () =
   it('an unconfirmed course entry is review, never silently counted twice', () => {
     const { estimate } = run([a(Q.ded.selfEdSameCourse, 'not_sure')].map((x) => ({ ...x, state: 'not_sure' as const })));
     expect(lineById(estimate, `ded.${Q.ded.selfEdAmount}`).status).toBe('manual_review');
-    expect(estimate.totals.deductionsCents).toBe(c(7690));
+    // Held out: a possible duplicate is never counted as entered.
+    expect(lineById(estimate, `ded.${Q.ded.selfEdAmount}`).heldOut).toBe(true);
+    expect(estimate.totals.deductionsCents).toBe(c(7690) + 139040);
   });
   it('a different course counts separately', () => {
     const { estimate } = run([a(Q.ded.selfEdSameCourse, 'different')]);
-    expect(estimate.totals.deductionsCents).toBe(c(10190));
+    expect(estimate.totals.deductionsCents).toBe(c(10190) + 139040);
   });
   it('a whole family premium with no allocation is unresolved, not claimed in full', () => {
     const { estimate } = run([

@@ -159,6 +159,19 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   }, []);
 
 
+  // Opened from a review link (#q-...): scroll to that question once the answers are loaded, and
+  // highlight it briefly so it is easy to find.
+  const ready = store.caseId === initial.caseId;
+  useEffect(() => {
+    if (!ready || typeof window === 'undefined' || !window.location.hash) return;
+    const el = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-amber-400');
+    const t = setTimeout(() => el.classList.remove('ring-2', 'ring-amber-400'), 4000);
+    return () => clearTimeout(t);
+  }, [ready, module]);
+
   useEffect(() => {
     // Initial estimate for the live panel, fetched after mount.
     const t = setTimeout(() => void refreshEstimate(), 0);
@@ -227,7 +240,7 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
         </p>
         {/* Until this case's answers are loaded, show nothing editable: a box built from another
             case's answers could otherwise save them into this case. */}
-        {store.caseId !== initial.caseId ? <p className="mt-4 text-sm text-muted">Loading your answers…</p> : (
+        {!ready ? <p className="mt-4 text-sm text-muted">Loading your answers…</p> : (
         <div className="mt-4 space-y-4">
           {module === 'employment' && !readOnly ? (
             <StatementUpload

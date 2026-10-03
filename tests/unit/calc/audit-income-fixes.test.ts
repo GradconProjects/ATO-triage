@@ -4,9 +4,9 @@ import { a, c, item, lineById, run } from './fixture';
 import { runGolden } from '../../golden/harness';
 
 describe('audit fixes: income', () => {
-  it('disaster and veterans payments are reviewed, not counted', () => {
+  it('disaster and veterans payments are flagged for review (counted provisionally)', () => {
     const est = run([a(Q.gov.amount('disaster'), c(1000)), a(Q.gov.amount('veterans'), c(20000))]);
-    expect(est.totals.assessableIncomeCents).toBe(0);
+    expect(est.totals.provisionalIncomeCents).toBe(c(21000));
     expect(lineById(est, `income.${Q.gov.amount('veterans')}`).status).toBe('manual_review');
   });
   it('pension type decides the treatment', () => {
@@ -38,6 +38,7 @@ describe('audit fixes: income', () => {
   });
   it('other foreign income is reviewed', () => {
     const est = run([a(Q.res.status, 'resident_full'), a(Q.fgn.amount('other'), c(1000))]);
-    expect(est.totals.assessableIncomeCents).toBe(0);
+    expect(lineById(est, `income.${Q.fgn.amount('other')}`).status).toBe('manual_review');
+    expect(est.totals.provisionalIncomeCents).toBe(c(1000));
   });
 });

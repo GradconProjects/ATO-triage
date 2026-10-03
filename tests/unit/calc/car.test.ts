@@ -33,10 +33,10 @@ describe('car expenses', () => {
   it('exactly 5,000 km', () => {
     expect(lineById(run([...base, a(Q.ded.carKm, 5000)]), 'ded.car').amountCents).toBe(c(4400));
   });
-  it('home-to-work mixed with work trips and no exception -> review, never silently deducted', () => {
+  it('home-to-work mixed with work trips and no exception -> flagged for review, counted provisionally', () => {
     const est = run([a(Q.ded.carAny, 'yes'), a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carTripTypes, ['client_to_client', 'home_to_work']), a(Q.ded.carException, 'none'), a(Q.ded.carKm, 1800)]);
     expect(lineById(est, 'ded.car').status).toBe('manual_review');
-    expect(est.totals.deductionsCents).toBe(0);
+    expect(est.totals.provisionalDeductionsCents).toBe(lineById(est, 'ded.car').amountCents);
     expect(est.uncertainInputs).toContain(Q.ded.carKm);
   });
   it('only home-to-work -> excluded', () => {

@@ -9,9 +9,10 @@ import { loadCaseState } from '@/src/lib/case-state';
 import { runCalculation } from '@/src/lib/calc-run';
 import { QUESTIONS_BY_ID } from '@/src/questions';
 import { Q } from '@/src/questions/ids';
-import { MODULE_LABELS } from '@/src/engine/types';
 import { GateChecklist } from '@/components/interview/gate-checklist';
 import { formatMoney } from '@/src/lib/utils';
+import { questionLink } from '@/src/lib/question-links';
+import type { EstimateLine, ManualReviewItem } from '@/src/calc/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,21 @@ export default async function ReviewPage({ params }: { params: Promise<{ caseId:
   const run = runCalculation(state);
   const { intelligence, estimate } = run;
   const gateQuestion = QUESTIONS_BY_ID.get(Q.gate.checks);
+  // Each review item, matched to the estimate line it affects (when there is one), with links to
+  // the exact questions to check.
+  const reviewLines = estimate.lines.filter((l) => l.status === 'manual_review');
+  const lineFor = (r: ManualReviewItem): EstimateLine | undefined =>
+    reviewLines.find((l) => r.questionIds.some((qid) => l.inputs.includes(qid.split('@')[0]!) && (!qid.includes('@') || l.itemId === qid.split('@')[1])));
+  const linksFor = (r: ManualReviewItem, l: EstimateLine | undefined) => {
+    const refs = r.questionIds.length ? r.questionIds : (l?.inputs ?? []);
+    const seen = new Set<string>();
+    return refs
+      .map((ref) => (ref.includes('@') || !l?.itemId ? ref : `${ref}@${l.itemId}`))
+      .map((ref) => questionLink(caseId, ref))
+      .filter((x): x is { href: string; label: string } => x !== null && !seen.has(x.href) && (seen.add(x.href), true))
+      .slice(0, 3);
+  };
+  const provisional = Math.abs(estimate.totals.provisionalIncomeCents ?? 0) + Math.abs(estimate.totals.provisionalDeductionsCents ?? 0);
   const ticked = state.view.list(Q.gate.checks) ?? [];
 
   return (
@@ -56,9 +72,49 @@ export default async function ReviewPage({ params }: { params: Promise<{ caseId:
           Indicative {estimate.totals.resultCents < 0 ? 'debt' : 'refund'}: {formatMoney(Math.abs(estimate.totals.resultCents))}
         </CardTitle>
         <CardDescription>
-          {intelligence.flags.length} flags · {estimate.manualReview.length} items routed to manual review. Every “Not sure” answer appears below.
+          {intelligence.flags.length} flags · {estimate.manualReview.length} items need review
+          {provisional ? ` · ${formatMoney(provisional)} counted provisionally as entered` : ''}. Every “Not sure” answer appears below.
         </CardDescription>
       </Card>
+
+      {estimate.manualReview.length ? (
+        <section className="mt-6" aria-labelledby="needs-review" id="needs-review">
+          <h2 id="needs-review-title" className="text-lg font-semibold">
+            Needs review <Badge tone="warning">{estimate.manualReview.length}</Badge>
+          </h2>
+          <p className="mt-1 text-sm text-muted">The estimate already uses what you entered. Open each item to check or correct the answer; the estimate updates as you do.</p>
+          <ul className="mt-3 space-y-3">
+            {estimate.manualReview.map((r, i) => {
+              const l = lineFor(r);
+              const links = linksFor(r, l);
+              const counted = l?.provisional ? 'Counted provisionally' : l?.heldOut ? 'Not counted until checked' : l ? 'Not counted' : null;
+              return (
+                <li key={`${r.module}-${i}`} className="rounded-lg border border-amber-200 bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      {l ? <p className="text-sm font-medium">{l.label}</p> : null}
+                      <p className="text-sm">{r.reason}</p>
+                    </div>
+                    <div className="shrink-0 text-right text-xs">
+                      {r.amountCents ? <p className="font-medium">{formatMoney(Math.abs(r.amountCents))}</p> : null}
+                      {counted ? <Badge tone={l?.provisional ? 'warning' : 'neutral'}>{counted}</Badge> : null}
+                    </div>
+                  </div>
+                  {links.length ? (
+                    <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                      {links.map((x) => (
+                        <Link key={x.href} href={x.href} className="text-primary underline">
+                          Go to: {x.label}
+                        </Link>
+                      ))}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {KIND_ORDER.map((kind) => {
         const flags = intelligence.flags.filter((f) => f.kind === kind);
@@ -77,12 +133,11 @@ export default async function ReviewPage({ params }: { params: Promise<{ caseId:
                   </div>
                   <p className="mt-2 text-xs text-muted">
                     {f.questionIds.map((qid) => {
-                      const q = QUESTIONS_BY_ID.get(qid);
-                      if (!q) return null;
+                      const link = questionLink(caseId, qid);
+                      if (!link) return null;
                       return (
-                        <Link key={qid} href={`/cases/${caseId}/interview/${q.module}#${qid}`} className="mr-3 underline">
-                          {MODULE_LABELS[q.module]}: {q.prompt.slice(0, 60)}
-                          {q.prompt.length > 60 ? '…' : ''}
+                        <Link key={qid} href={link.href} className="mr-3 underline">
+                          {link.label}
                         </Link>
                       );
                     })}

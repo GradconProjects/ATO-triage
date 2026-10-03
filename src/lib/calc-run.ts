@@ -43,8 +43,9 @@ export function summarise(run: CalcRun) {
     blockers: intelligence.flags.filter((f) => f.severity === 'blocker').length,
     completenessPct: intelligence.completeness.pct,
     manualReviewCount: estimate.manualReview.length,
-    // Amounts held for review are not in the result until confirmed.
-    notCountedCents: estimate.manualReview.reduce((s, r) => s + Math.abs(r.amountCents ?? 0), 0),
+    // Amounts under review counted provisionally, and those held out of the result.
+    provisionalCents: Math.abs(estimate.totals.provisionalIncomeCents ?? 0) + Math.abs(estimate.totals.provisionalDeductionsCents ?? 0),
+    notCountedCents: estimate.totals.heldOutCents ?? 0,
     // At nil tax, extra deductions cannot change the result (only withholding and refundable offsets do).
     nilTax: estimate.totals.grossTaxCents === 0 && estimate.totals.medicareLevyCents === 0,
   };

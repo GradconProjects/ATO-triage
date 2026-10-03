@@ -67,7 +67,8 @@ describe('income', () => {
   it('partnership shares: positive in, negative reviewed, credits counted once (as a credit)', () => {
     const est = run([a(Q.bus.ptShare, c(2000), 'x1'), a(Q.bus.ptCredits, c(300), 'x1'), a(Q.bus.ptShare, c(-1000), 'x2')], { items: [item('x1', 'partnership_trust'), item('x2', 'partnership_trust', 1)] });
     // The share of net income already includes the franking credit.
-    expect(est.totals.assessableIncomeCents).toBe(c(2000));
+    expect(est.totals.assessableIncomeCents - (est.totals.provisionalIncomeCents ?? 0)).toBe(c(2000));
+    expect(est.totals.provisionalIncomeCents).toBe(c(-1000));
     expect(est.totals.creditsCents).toBe(c(300));
     expect(lineById(est, 'income.pt.share@x2').status).toBe('manual_review');
   });
@@ -79,7 +80,7 @@ describe('income', () => {
     expect(lineById(run([a(Q.allow.amount, c(450), 'al1'), notSure(Q.allow.nature, 'al1')], { items }), 'income.allowance@al1').status).toBe('manual_review');
     const unanswered = run([a(Q.allow.amount, c(450), 'al1')], { items });
     expect(lineById(unanswered, 'income.allowance@al1').status).toBe('manual_review');
-    expect(unanswered.totals.assessableIncomeCents).toBe(0);
+    expect(unanswered.totals.provisionalIncomeCents).toBe(c(450));
   });
   it('foreign income by residency', () => {
     const res = run([a(Q.res.status, 'resident_full'), a(Q.fgn.amount('employment'), c(10000))]);
@@ -89,7 +90,8 @@ describe('income', () => {
   });
   it('government payments, tips, crypto income, ESS', () => {
     const est = run([a(Q.gov.amount('jobseeker'), c(5000)), a(Q.gov.amount('other'), c(100)), a(Q.chef.tipsAmount, c(2000)), a(Q.emp.otherPayTips, c(300)), a(Q.cgt.cryptoIncome, c(50)), a(Q.inv.essDiscount, c(400)), a(Q.emp.otherPayGifts, c(80))]);
-    expect(est.totals.assessableIncomeCents).toBe(c(7350));
+    // Confirmed 7,350 (jobseeker 5,000 + tips 2,300 + crypto 50); other, ESS and gifts provisional.
+    expect(est.totals.assessableIncomeCents - (est.totals.provisionalIncomeCents ?? 0)).toBe(c(7350));
     expect(lineById(est, `income.${Q.gov.amount('other')}`).status).toBe('manual_review');
     expect(lineById(est, `income.${Q.inv.essDiscount}`).status).toBe('manual_review');
     expect(lineById(est, `income.${Q.emp.otherPayGifts}`).status).toBe('manual_review');

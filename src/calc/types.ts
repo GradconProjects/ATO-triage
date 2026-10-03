@@ -42,6 +42,11 @@ export interface EstimateLine {
   informational?: boolean;
   /** Included in the estimate, but only provisionally (an app estimate or unconfirmed input). */
   provisional?: boolean;
+  /**
+   * A review line that is NOT counted provisionally, because counting it as entered would very
+   * likely be wrong (a possible double count, or an amount usually not taxed at marginal rates).
+   */
+  heldOut?: boolean;
 }
 
 export interface ManualReviewItem {
@@ -72,6 +77,11 @@ export interface EstimateTotals {
   workRelatedDeductionsCents: number;
   /** Private health insurance rebate liability added to tax (rebate received above entitlement). */
   phiLiabilityCents: number;
+  /** Income and deductions under review that are counted provisionally, as entered. */
+  provisionalIncomeCents?: number;
+  provisionalDeductionsCents?: number;
+  /** Review amounts held out of the estimate (see EstimateLine.heldOut). */
+  heldOutCents?: number;
   /**
    * Refundable offsets (e.g. an additional private health rebate owed to you). Never capped at
    * income tax: paid out even when tax is nil. Optional so older stored estimates still load.

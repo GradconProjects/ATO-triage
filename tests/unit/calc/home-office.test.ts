@@ -18,7 +18,8 @@ describe('working from home', () => {
     const l = lineById(est, 'ded.wfh');
     expect(l.status).toBe('manual_review');
     expect(l.amountCents).toBe(33500);
-    expect(est.totals.deductionsCents).toBe(0);
+    expect(l.provisional).toBe(true);
+    expect(est.totals.provisionalDeductionsCents).toBe(33500);
     expect(est.uncertainInputs).toContain(Q.ded.wfhHours);
   });
   it('no record -> review', () => {
