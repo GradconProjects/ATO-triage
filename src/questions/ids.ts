@@ -344,7 +344,7 @@ export const Q = {
     customRepeater: 'ded.custom',
     customItem: 'ded.custom.item',        // text: what it was
     customPurpose: 'ded.custom.purpose',  // text: how it relates to earning income
-    customConnection: 'ded.custom.connection', // single: earning_income | private_or_capital | not_sure
+    customConnection: 'ded.custom.connection', // single: earning_income | partly_private | capital | private | not_sure
     customAmount: 'ded.custom.amount',
     giftsAmount: 'ded.gifts.amount',
     giftsDgr: 'ded.gifts.dgr',          // yes_no_unsure

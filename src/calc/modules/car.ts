@@ -78,7 +78,15 @@ export function computeCar(cx: CalcContext): number {
       return { kind: 'review', reason: 'Trip types not answered, so home-to-work travel cannot be separated.', ids: [Q.ded.carTripTypes], amount, formula: `${name}${carKm} km x ${rate}c (trip types missing)` };
     }
     const ids: string[] = [kmId, Q.ded.carTripTypes];
-    if (trips.includes('home_to_work')) {
+    if (trips.every((t) => t === 'none')) {
+      return { kind: 'excluded', reason: 'No work trips were ticked, so no car kilometres are claimed.', ids: [Q.ded.carTripTypes], amount, formula: `${name}${carKm} km (no work trips)` };
+    }
+    if (trips.includes('other')) {
+      return { kind: 'review', reason: 'An "other" kind of car trip needs checking before the kilometres are claimed.', ids: [Q.ded.carTripTypes], amount, formula: `${name}${carKm} km (other trips) x ${rate}c` };
+    }
+    // Home-to-work trips, and trips justified by carrying bulky tools, both need an exception:
+    // bulky tools count only when the employer required them and there was no secure storage at work.
+    if (trips.includes('home_to_work') || trips.includes('bulky_tools')) {
       const exceptions = carExceptions(cx.a);
       // Bulky tools with no storage, or itinerant work, each make the trips work travel on their own.
       const exceptionApplies = exceptions.includes('bulky_no_storage') || exceptions.includes('itinerant');
@@ -91,7 +99,7 @@ export function computeCar(cx: CalcContext): number {
         return { kind: 'review', reason: 'Not sure whether an exception applied to the home-to-work trips; they are held for review, not claimed or dropped.', ids: [Q.ded.carException, ...ids], amount, formula: `${name}${carKm} km (exception not confirmed) x ${rate}c` };
       }
       if (!exceptionApplies) {
-        if (trips.every((t) => t === 'home_to_work')) return { kind: 'excluded', reason: 'Ordinary home-to-work travel is private and cannot be claimed.', ids: [Q.ded.carTripTypes, Q.ded.carException], amount, formula: `${name}${carKm} km home-to-work x ${rate}c (excluded)` };
+        if (trips.every((t) => t === 'home_to_work' || t === 'bulky_tools')) return { kind: 'excluded', reason: 'Ordinary home-to-work travel is private and cannot be claimed.', ids: [Q.ded.carTripTypes, Q.ded.carException], amount, formula: `${name}${carKm} km home-to-work x ${rate}c (excluded)` };
         return { kind: 'review', reason: 'Kilometres include home-to-work trips with no exception; the work-only kilometres must be separated before claiming.', ids: [Q.ded.carTripTypes, Q.ded.carException, kmId], amount, formula: `${name}${carKm} km (mixed trips) x ${rate}c` };
       }
       ids.push(Q.ded.carException);

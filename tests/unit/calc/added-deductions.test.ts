@@ -35,12 +35,16 @@ describe('deductions the user adds', () => {
   const entry = (id: string, name: string, conn: string, amount: number) => [
     a(Q.ded.customItem, name, id), a(Q.ded.customPurpose, 'needed for the job', id), a(Q.ded.customConnection, conn, id), ...spent('ded.custom', amount, id), a('ded.custom.work_pct', 100, id),
   ];
-  const est = run([a(Q.ded.customAny, 'yes'), ...entry('x1', 'Safety course', 'earning_income', 250), ...entry('x2', 'Gym membership', 'private_or_capital', 600)], { items });
+  const est = run([a(Q.ded.customAny, 'yes'), ...entry('x1', 'Safety course', 'earning_income', 250), ...entry('x2', 'Gym membership', 'private', 600)], { items });
   it('each item is its own line, labelled with its name', () => {
     expect(lineById(est, `ded.${Q.ded.customAmount}@x1`).label).toContain('Safety course');
     expect(lineById(est, `ded.${Q.ded.customAmount}@x1`).status).toBe('computed');
     expect(lineById(est, `ded.${Q.ded.customAmount}@x2`).status).toBe('excluded');
     expect(est.totals.deductionsCents).toBe(c(250));
+  });
+  it('a partly private item counts the work percentage', () => {
+    const r = run([a(Q.ded.customAny, 'yes'), ...entry('x1', 'Phone case', 'partly_private', 200).filter((x) => x.id !== 'ded.custom.work_pct'), a('ded.custom.work_pct', 60, 'x1')], { items });
+    expect(lineById(r, `ded.${Q.ded.customAmount}@x1`).amountCents).toBe(c(120));
   });
   it('an unconfirmed connection is review', () => {
     const r = run([a(Q.ded.customAny, 'yes'), a(Q.ded.customItem, 'Something', 'x1'), ...spent('ded.custom', 100, 'x1'), a('ded.custom.work_pct', 100, 'x1')], { items });

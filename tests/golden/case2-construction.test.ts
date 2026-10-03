@@ -109,7 +109,6 @@ const run = () =>
       a('ded.car.evidence', 'diary'),
       // Remaining screens
       a('ded.travel.any', 'no'),
-      a('ded.sun.any', 'no'),
       a('ded.tax_affairs.any', 'no'),
       a('ded.gifts.any', 'no'),
       a('ded.income_protection.any', 'no'),

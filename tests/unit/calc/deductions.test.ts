@@ -30,29 +30,40 @@ describe('$300 instant deduction threshold', () => {
     expect(l.amountCents).toBe(29999);
     expect(est.totals.deductionsCents).toBe(29999);
   });
-  it('$300 is capital: diminishing value over the effective life', () => {
-    const est = tool(30000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2024-07-01', 't1')]);
-    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(12000);
+  it('exactly $300 is claimed immediately (ATO: $300 or less)', () => {
+    expect(lineById(tool(30000), 'ded.ded.tool.cost@t1').amountCents).toBe(30000);
+  });
+  it('a rate above 100% is capped: decline never exceeds the cost', () => {
+    const est = tool(100000, [a(Q.ded.toolEffectiveLife, 1, 't1'), a(Q.ded.toolDate, '2024-07-01', 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(100000);
+  });
+  it('an item of $300 or less bought in an earlier year is not claimed again', () => {
+    const est = tool(25000, [a(Q.ded.toolDate, '2023-03-01', 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').status).toBe('excluded');
+  });
+  it('$500 is capital: diminishing value over the effective life', () => {
+    const est = tool(50000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2024-07-01', 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(20000);
     expect(est.moduleStatus['decline_in_value']).toBe('computed');
   });
-  it('$300 pro-rated from the date first used', () => {
-    const est = tool(30000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2025-01-01', 't1')]);
-    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(5951); // 30000 x 0.4 x 181/365
+  it('$500 pro-rated from the date first used', () => {
+    const est = tool(50000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2025-01-01', 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(9918); // 50000 x 0.4 x 181/365
   });
-  it('$300 without an effective life goes to review', () => {
-    const est = tool(30000);
+  it('$500 without an effective life goes to review', () => {
+    const est = tool(50000);
     expect(lineById(est, 'ded.ded.tool.cost@t1').status).toBe('manual_review');
     expect(est.uncertainInputs).toContain('ded.tool.cost@t1');
     expect(est.moduleStatus['decline_in_value']).toBe('manual_review');
   });
-  it('$300 without a date assumes a full year', () => {
-    const est = tool(30000, [a(Q.ded.toolEffectiveLife, 5, 't1')]);
-    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(12000);
+  it('$500 without a date assumes a full year', () => {
+    const est = tool(50000, [a(Q.ded.toolEffectiveLife, 5, 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(20000);
     expect(est.assumptions.some((s) => s.includes('full year'))).toBe(true);
   });
   it('work % applies to the decline', () => {
-    const est = tool(30000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2024-07-01', 't1'), a(Q.ded.toolWorkPct, 50, 't1')]);
-    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(6000);
+    const est = tool(50000, [a(Q.ded.toolEffectiveLife, 5, 't1'), a(Q.ded.toolDate, '2024-07-01', 't1'), a(Q.ded.toolWorkPct, 50, 't1')]);
+    expect(lineById(est, 'ded.ded.tool.cost@t1').amountCents).toBe(10000);
   });
 });
 
@@ -161,5 +172,13 @@ describe('data-driven deductions', () => {
   });
   it('nothing answered -> not applicable', () => {
     expect(run([a(Q.emp.gross, c(1000), 'e1')]).moduleStatus['deductions']).toBe('not_applicable');
+  });
+});
+
+describe('audit fixes: laundry for construction PPE', () => {
+  it('hi-vis counts as eligible protective clothing', () => {
+    const est = run([a(Q.ded.laundryAny, 'yes'), a(Q.con.ppe, ['hi_vis']), a('ded.laundry.paid', 'paid_not_reimbursed'), a(Q.ded.laundryLoadsWorkOnly, 1), a(Q.ded.laundryLoadsMixed, 0), a(Q.ded.laundryWeeks, 46), a(Q.ded.laundryEvidence, 'diary')]);
+    expect(lineById(est, 'ded.laundry').status).toBe('computed');
+    expect(lineById(est, 'ded.laundry').amountCents).toBe(c(46));
   });
 });

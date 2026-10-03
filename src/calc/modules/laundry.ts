@@ -11,11 +11,14 @@ export function hasEligibleClothing(cx: CalcContext): { eligible: boolean; input
   const general = cx.a.list(Q.ded.clothingType) ?? [];
   const dsw = cx.a.list(Q.dsw.clothing) ?? [];
   const chef = cx.a.list(Q.chef.clothing) ?? [];
+  // Construction protective clothing (sun gear and boots are not laundered, but hi-vis and other PPE are).
+  const ppe = cx.a.list(Q.con.ppe) ?? [];
   const eligible =
+    ppe.some((v) => ['hi_vis', 'gloves'].includes(v)) ||
     general.some((v) => (ELIGIBLE_CLOTHING as readonly string[]).includes(v)) ||
     dsw.some((v) => (ELIGIBLE_DSW_CLOTHING as readonly string[]).includes(v)) ||
     chef.some((v) => !(INELIGIBLE_CHEF_CLOTHING as readonly string[]).includes(v));
-  return { eligible, inputs: [Q.ded.clothingType, Q.dsw.clothing, Q.chef.clothing] };
+  return { eligible, inputs: [Q.ded.clothingType, Q.dsw.clothing, Q.chef.clothing, Q.con.ppe] };
 }
 
 /**

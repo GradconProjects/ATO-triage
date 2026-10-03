@@ -10,9 +10,9 @@ import { lineId } from '../explain';
  */
 export function diminishingValue(costCents: number, effectiveLifeYears: number, daysHeld: number, workPct = 100): number {
   if (effectiveLifeYears <= 0 || daysHeld <= 0) return 0;
+  // The rate never exceeds 100%: decline in value cannot be more than the base value.
   return new Decimal(costCents)
-    .mul(2)
-    .div(effectiveLifeYears)
+    .mul(Decimal.min(new Decimal(2).div(effectiveLifeYears), 1))
     .mul(Math.min(daysHeld, 365))
     .div(365)
     .mul(workPct)
@@ -70,8 +70,8 @@ export function declineInValueLine(cx: CalcContext, a: DeclineArgs): number {
       amountCents: a.costCents,
       ruleId: `${cx.rules.fy}.declineInValue`,
       inputs: [...a.inputs, a.effectiveLifeQ],
-      formula: `cost ${a.costCents / 100} >= $${cx.rules.instantDeductionThreshold}: decline in value needs an effective life`,
-      note: 'Item costs $300 or more: it is written off over its effective life. Answer the effective life to compute it.',
+      formula: `cost ${a.costCents / 100} over $${cx.rules.instantDeductionThreshold}: decline in value needs an effective life`,
+      note: 'Item costs more than $300: it is written off over its effective life. Answer the effective life to compute it.',
       category: a.category,
       itemId: a.itemId,
       detail: { costCents: a.costCents, workPct: a.workPct },

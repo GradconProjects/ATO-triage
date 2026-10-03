@@ -68,13 +68,13 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     opt('bulky_tools', 'Carrying bulky tools or equipment the employer required', 'Heavy or awkward items you had to bring because there was no safe place to leave them at work.'),
     opt('itinerant', 'To many different sites, with no fixed workplace', 'Itinerant work: the job itself involves travelling between changing sites.'),
   ], { occupationTags: ['vehicle_travel'], atoRef: ATO.travel, showIf: CAR_ON, help: 'The type of trip decides whether the kilometres count. Tick every kind you made.' }),
-  multi(Q.ded.carException, D, 'Which of these applied to your home-to-work trips? Select all that apply.', [
+  multi(Q.ded.carException, D, 'Which of these applied to your trips from home? Select all that apply.', [
     opt('bulky_no_storage', 'I carried bulky tools the employer required, and there was no secure storage at the work site', 'All three parts must be true: bulky, required by the employer, and no safe storage at work.'),
     opt('itinerant', 'My job was itinerant: I travelled to different sites as a normal part of the work'),
     opt('home_base', 'My home was a genuine base of work: I started work at home before travelling', 'Rare. Doing a few emails at home does not make it a work base.'),
     { ...noneOption(), help: 'Then the home-to-work trips are private and are left out.' },
   ], {
-    occupationTags: ['vehicle_travel'], atoRef: ATO.travel, showIf: all(CAR_ON, includes(Q.ded.carTripTypes, 'home_to_work')), feeds: ['deductions'],
+    occupationTags: ['vehicle_travel'], atoRef: ATO.travel, showIf: all(CAR_ON, any(includes(Q.ded.carTripTypes, 'home_to_work'), includes(Q.ded.carTripTypes, 'bulky_tools'))), feeds: ['deductions'],
     help: 'Home-to-work travel is private unless one of these narrow exceptions applies. Tick every one that applied; we only count the trips if at least one does.',
   }),
   single(Q.ded.carMethod, D, 'Which method do you want to use for car expenses?', [
@@ -237,12 +237,12 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     askDate: true, workPct: true, workPctPrompt: 'What percentage of the time is this item used for work?', askJob: true,
   }),
   num(Q.ded.toolEffectiveLife, D, 'How many years do you expect this item to last?', {
-    repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: all(TOOL_ON, gt(Q.ded.toolCost, 29999)), feeds: ['deductions'],
+    repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: all(TOOL_ON, gt(Q.ded.toolCost, 30000)), feeds: ['deductions'],
     validation: [{ kind: 'min', value: 1 }, { kind: 'max', value: 40 }],
     help: 'Items costing $300 or more are claimed over their effective life. The ATO publishes typical lives; for example power tools are often 3 to 5 years.',
   }),
   money(Q.ded.toolOpeningValue, D, 'If first used before this year: what was its value at the start of this year? (optional)', {
-    repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: all(TOOL_ON, gt(Q.ded.toolCost, 29999)), required: false, feeds: ['deductions'],
+    repeaterGroup: TOOL, occupationTags: ['tools_equipment'], atoRef: ATO.tools, showIf: all(TOOL_ON, gt(Q.ded.toolCost, 30000)), required: false, feeds: ['deductions'],
     validation: [{ kind: 'min', value: 0 }],
     help: 'The opening adjustable value: cost less the decline in value worked out in earlier years (last year\'s closing value). Only for an item first used before this year; the cost is not written off again from the start.',
   }),
@@ -385,7 +385,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   // Sun protection (dsw.sun routes here)
   // =========================================================================
   yesNoUnsure('ded.sun.any', D, 'Did you buy sun protection for outdoor work this year?', {
-    occupationTags: ['sun_protection'], atoRef: ATO.sun, feeds: ['deductions'], showIf: not(occ('dsw')),
+    occupationTags: ['sun_protection'], atoRef: ATO.sun, feeds: ['deductions'], showIf: not(any(occ('dsw'), occ('construction'))),
     help: 'Sunscreen, a hat or sunglasses bought because your work is outdoors.',
   }),
   ...deductionSet({
@@ -512,7 +512,7 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   text(Q.ded.customItem, D, 'What was it?', { repeaterGroup: CUSTOM, atoRef: ATO.deductions, showIf: CUSTOM_ON, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
   ...deductionSet({
     base: 'ded.custom', module: D, category: 'custom', atoRef: ATO.deductions, repeaterGroup: CUSTOM, showIf: CUSTOM_ON,
-    treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', private_or_capital: 'N' }, fallback: 'R' },
+    treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', partly_private: 'D', capital: 'R', private: 'N' }, fallback: 'R' },
     prompt: 'How much did you pay?',
     purpose: [
       text(Q.ded.customPurpose, D, 'How did it help you earn your income?', {
@@ -520,8 +520,10 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
         help: 'For example "union-required safety course" or "parking at a client site". This goes in the report for checking.',
       }),
       single(Q.ded.customConnection, D, 'Which of these is true?', [
-        opt('earning_income', 'I paid it to earn my income, it was not private, and it was not something that lasts for years', 'Counted, and listed for checking.'),
-        opt('private_or_capital', 'It was partly private, or something that lasts for years', 'Not counted here. Items lasting for years go under tools or equipment.'),
+        opt('earning_income', 'I paid it only to earn my income, and it does not last for years', 'Counted, and listed for checking.'),
+        opt('partly_private', 'It was partly for work and partly private', 'Only the work percentage is counted.'),
+        opt('capital', 'It is something that lasts for years', 'Held for review: usually claimed over its life (tools or equipment).'),
+        opt('private', 'It was private', 'Not deductible.'),
       ], { repeaterGroup: CUSTOM, feeds: ['deductions'] }),
     ],
     workPct: true, workPctPrompt: 'What percentage of this cost was for work?',

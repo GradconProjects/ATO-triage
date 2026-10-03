@@ -100,3 +100,17 @@ describe('car expenses', () => {
     });
   });
 });
+
+describe('audit fixes: trip types', () => {
+  const trip = (trips: string[], exception?: string[]) => run([a(Q.ded.carAny, 'yes'), a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carTripTypes, trips), ...(exception ? [a(Q.ded.carException, exception)] : []), a(Q.ded.carKm, 3000)]);
+  it('"None of these" trips are not claimed', () => {
+    expect(lineById(trip(['none']), 'ded.car').status).toBe('excluded');
+  });
+  it('other trips are reviewed', () => {
+    expect(lineById(trip(['other']), 'ded.car').status).toBe('manual_review');
+  });
+  it('bulky tools need the no-secure-storage exception', () => {
+    expect(lineById(trip(['bulky_tools'], ['none']), 'ded.car').status).toBe('excluded');
+    expect(lineById(trip(['bulky_tools'], ['bulky_no_storage']), 'ded.car').status).toBe('computed');
+  });
+});

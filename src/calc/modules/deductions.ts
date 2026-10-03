@@ -1,3 +1,4 @@
+import { fyBounds, parseIsoDate } from '../context';
 import { Q } from '../../questions/ids';
 import type { DeductionCategory, DeductionMeta, Treatment, TreatmentByAnswer } from '../../engine/types';
 import type { CalcContext } from '../context';
@@ -38,7 +39,7 @@ export const KNOWN_DEDUCTIONS: Record<string, KnownDeduction> = {
   [Q.ded.sunAmount]: { category: 'sun_protection', base: 'ded.sun', treatment: 'D' },
   [Q.ded.taxAffairsAmount]: { category: 'tax_affairs', base: 'ded.tax_affairs', treatment: 'D' },
   [Q.ded.compCostsAmount]: { category: 'compensation_costs', base: 'ded.comp_costs', treatment: { byQuestion: Q.ded.compCostsFor, map: { lost_earnings: 'D', capital: 'N', both: 'R' } } },
-  [Q.ded.customAmount]: { category: 'custom', base: 'ded.custom', treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', private_or_capital: 'N' } } },
+  [Q.ded.customAmount]: { category: 'custom', base: 'ded.custom', treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', partly_private: 'D', capital: 'R', private: 'N' } } },
   [Q.ded.giftsAmount]: { category: 'gifts_donations', base: 'ded.gifts', treatment: 'D' },
   [Q.ded.incomeProtectionAmount]: { category: 'income_protection', base: 'ded.income_protection', treatment: 'D' },
   [Q.ded.investmentAmount]: { category: 'investment', base: 'ded.investment', treatment: 'D' },
@@ -249,10 +250,14 @@ export function computeDeductions(cx: CalcContext): DeductionsResult {
       detail['workPct'] = wp;
       detail['reimbursedCents'] = paid.reimbursedCents;
 
-      const isCapital = r.treatment === 'C' || (meta.capitalThreshold === true && cents >= threshold);
+      const isCapital = r.treatment === 'C' || (meta.capitalThreshold === true && cents > threshold);
       let amount: number;
       if (isCapital) {
         amount = declineInValueLine(cx, { idPrefix: `ded.${id}`, itemId, label, category: meta.category, costCents: paid.netCents, workPct: wp, inputs, effectiveLifeQ: `${base}.effective_life`, dateQ: `${base}.date`, openingValueQ: `${base}.opening_value`, key });
+      } else if (meta.capitalThreshold && (() => { const d = parseIsoDate(cx.scopedString(`${base}.date`, itemId) ?? ''); const s = parseIsoDate(fyBounds(cx.fy).from); return d !== undefined && s !== undefined && d < s; })()) {
+        // An item of $300 or less is deducted in the year it was bought, not again later.
+        cx.lines.excluded({ id: lid, section: 'deductions', label, amountCents: pct(paid.netCents, wp), ruleId: `${fy}.deduction.${meta.category}`, inputs: [...inputs, `${base}.date`], formula: `bought ${cx.scopedString(`${base}.date`, itemId)}, before this year`, note: 'An item costing $300 or less is claimed in full in the year it was bought, so it is not claimed again this year.', category: meta.category, itemId, detail });
+        continue;
       } else {
         amount = pct(paid.netCents, wp);
         cx.lines.computed({ id: lid, section: 'deductions', label, amountCents: amount, ruleId: `${fy}.deduction.${meta.category}`, inputs, formula: `${paid.reimbursedCents ? `(${cents / 100} - ${paid.reimbursedCents / 100} reimbursed)` : `${cents / 100}`} x ${wp}%${meta.capitalThreshold ? ` (under $${rules.instantDeductionThreshold}: immediate)` : ''}${r.formula && r.inputs.length ? `; ${r.formula}` : ''}`, category: meta.category, itemId, detail, ...(paid.note ? { note: paid.note } : {}) });
