@@ -97,8 +97,9 @@ export const CGT_QUESTIONS: Question[] = flatten(
     opt('fifo', 'First in, first out (FIFO)', 'The earliest units bought are treated as sold first.'),
     opt('other', 'Another method, or an exchange tax report', 'For example a crypto tax tool\'s report. We note the method for review.'),
   ], { showIf: includes(Q.cgt.events, 'crypto'), feeds: ['cgt'], help: 'The method must be applied consistently. We never assume one for you.' }),
+  // Asked of everyone: staking or airdrop income can arise without any crypto being sold.
   yesNoUnsure('cgt.crypto_income.any', 'cgt', 'Did you receive any crypto from staking, airdrops, or as payment?', {
-    showIf: includes(Q.cgt.events, 'crypto'), feeds: ['income'],
+    required: false, feeds: ['income'],
     help: 'Staking rewards, airdrops and crypto received as payment are ordinary income at their AUD value when received, not capital gains.',
   }),
   money(Q.cgt.cryptoIncome, 'cgt', 'What was the AUD value of the crypto income when you received it?', {

@@ -1,10 +1,12 @@
 /** M6 WorkCover, compensation, Lump Sum E and termination payments. Universal. */
 import type { Option, Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
-import { all, flatten, includes, money, opt, repeater, screening, single, singleAllowListed, text, yesNoUnsure, date } from './shared';
+import { all, any, anyItemGt, flatten, includes, money, opt, repeater, screening, single, singleAllowListed, text, yesNoUnsure, date } from './shared';
 
 const L = GROUPS.lumpSumEYear;
-const ARREARS = includes(Q.comp.received, 'arrears');
+const ARREARS_COMP = includes(Q.comp.received, 'arrears');
+// Accrual years are asked for WorkCover arrears and for Lump Sum E on any employer's income statement.
+const ARREARS = any(ARREARS_COMP, anyItemGt(Q.emp.lumpE, 0));
 
 /** Financial years a Lump Sum E amount can relate to (accrual years). Allow-listed: no not_sure. */
 export const LSE_FY_OPTIONS: Option[] = [

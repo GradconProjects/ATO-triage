@@ -26,7 +26,8 @@ export const FOREIGN_QUESTIONS: Question[] = flatten(
     money(Q.fgn.amount(t), 'foreign', FGN_LABELS[t].amount, {
       showIf: includes(Q.fgn.received, t),
       help: FGN_LABELS[t].help,
-      income: { category: 'foreign', treatment: { ...RESIDENCY_TREATMENT, map: { ...RESIDENCY_TREATMENT.map } } },
+      // 'Other' foreign income is unclassified, so it is always reviewed.
+      income: { category: 'foreign', treatment: t === 'other' ? 'R' : { ...RESIDENCY_TREATMENT, map: { ...RESIDENCY_TREATMENT.map } } },
       feeds: ['income'],
       validation: [{ kind: 'min', value: 0 }],
     }),

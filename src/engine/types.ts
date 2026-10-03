@@ -191,6 +191,7 @@ export type Condition =
   | { q: string; in: string[] }
   | { q: string; includes: string }     // multi contains
   | { q: string; gt: number }
+  | { q: string; anyItemGt: number }   // a repeater question answered above the value in any item
   | { q: string; answered: true }
   | { occupation: OccupationTag }
   | { all: Condition[] }

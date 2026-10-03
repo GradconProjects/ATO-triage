@@ -152,6 +152,8 @@ export function computeIncome(cx: CalcContext): IncomeResult {
       add({ idPrefix: 'income.allowance', itemId, label: `Reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `reimbursement of actual cost ${cents / 100}`, ruleId: `${fy}.income.allowance`, treatment: 'N', key, note: 'A reimbursement of actual costs is not income, and the matching expense cannot be claimed.' });
     } else if (nature === undefined) {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance or reimbursement (${type})`, cents, category: 'allowance', inputs, formula: `${cents / 100} (allowance vs reimbursement ${cx.a.isNotSure(Q.allow.nature, itemId) ? 'not sure' : 'not answered'})`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: cx.a.isNotSure(Q.allow.nature, itemId) ? 'Not sure whether this was an allowance or a reimbursement.' : 'Whether this was an allowance or a reimbursement has not been answered.' });
+    } else if (nature === 'allowance' && type === 'lafha') {
+      add({ idPrefix: 'income.allowance', itemId, label: 'Living-away-from-home allowance', cents, category: 'allowance', inputs, formula: `${cents / 100} (LAFHA)`, ruleId: `${fy}.income.allowance`, treatment: 'R', key, note: 'A living-away-from-home allowance is usually a fringe benefit, not your income, unless it is shown as an allowance on your income statement. Confirm before counting it.' });
     } else if (nature === 'allowance') {
       add({ idPrefix: 'income.allowance', itemId, label: `Allowance (${type})`, cents, category: 'allowance', inputs, formula: `allowance ${cents / 100} assessable`, ruleId: `${fy}.income.allowance`, treatment: 'I', key });
     } else {
@@ -168,7 +170,9 @@ export function computeIncome(cx: CalcContext): IncomeResult {
     const incl = cx.visible.has(Q.comp.weeklyIncludesArrears) ? cx.a.string(Q.comp.weeklyIncludesArrears) : undefined;
     if (weekly !== undefined) {
       const inputs = [Q.comp.weeklyAmount, ...(arrears !== undefined ? [Q.comp.weeklyIncludesArrears] : [])];
-      if (arrears !== undefined && incl === 'yes') {
+      if (arrears !== undefined && incl === 'yes' && weekly < arrears) {
+        add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (inconsistent with the arrears)', cents: weekly, category: 'compensation', inputs, formula: `gross ${weekly / 100} is less than the arrears ${arrears / 100} it is said to include`, ruleId: `${fy}.income.compensation`, treatment: 'R', key: Q.comp.weeklyAmount, note: 'The weekly gross cannot include arrears larger than itself; check both amounts.' });
+      } else if (arrears !== undefined && incl === 'yes') {
         add({ idPrefix: `income.${Q.comp.weeklyAmount}`, itemId: null, label: 'WorkCover weekly payments (excluding the arrears)', cents: weekly - arrears, category: 'compensation', inputs, formula: `gross ${weekly / 100} includes arrears ${arrears / 100}: ${weekly / 100} - ${arrears / 100}`, ruleId: `${fy}.income.compensation`, treatment: 'I', key: Q.comp.weeklyAmount });
       } else if (arrears !== undefined && incl !== 'no' && weekly >= arrears) {
         // Not confirmed: the part of the gross that is income either way is counted; only the
@@ -200,8 +204,17 @@ export function computeIncome(cx: CalcContext): IncomeResult {
   // Government payments.
   for (const type of GOV_TYPES) {
     const id = Q.gov.amount(type);
-    const treatment: IncomeTreatment = type === 'other' ? 'R' : 'I';
-    simple(id, null, `Government payment (${type.replace(/_/g, ' ')})`, 'government', treatment, `${fy}.income.government`, treatment === 'R' ? 'Some government payments are exempt; needs review.' : undefined);
+    // Disaster, veterans' and other payments can be exempt: review. A pension may be the Disability
+    // Support Pension, which is exempt under Age Pension age: review unless the person is 67 or over.
+    const kind = type === 'pension' ? cx.a.string(Q.gov.pensionKind) : undefined;
+    let treatment: IncomeTreatment = type === 'other' || type === 'disaster' || type === 'veterans' ? 'R' : 'I';
+    let note: string | undefined = treatment === 'R' ? 'Some of these payments are exempt; needs review.' : undefined;
+    if (type === 'pension') {
+      if (kind === 'dsp_under_age') { treatment = 'N'; note = 'The Disability Support Pension is tax-free when paid under Age Pension age.'; }
+      else if (kind === 'carer') { treatment = 'R'; note = 'Carer Payment is tax-free in some cases (for example when you and the person you care for are both under Age Pension age); confirm before counting it.'; }
+      else if (kind !== 'age_pension' && kind !== 'dsp_at_age') { treatment = 'R'; note = 'Which pension this is decides whether it is taxable: answer the pension type.'; }
+    }
+    simple(id, null, `Government payment (${type.replace(/_/g, ' ')})`, 'government', treatment, `${fy}.income.government`, note, type === 'pension' ? [Q.gov.pensionKind] : []);
   }
 
   // Super income.
@@ -326,12 +339,17 @@ export function computeIncome(cx: CalcContext): IncomeResult {
       const psi80 = cx.a.string(Q.bus.psi80);
       const psiNotSure = cx.a.isNotSure(Q.bus.psi80);
       const results = cx.a.string(Q.bus.psiResults);
+      const unrelated = cx.a.string(Q.bus.psiUnrelated);
+      // 80%+ from one client: only the results test can make it a personal services business.
+      // Otherwise the results or unrelated-clients test does. Any "not sure" goes to review.
+      const anyNotSure = psiNotSure || cx.a.isNotSure(Q.bus.psiResults) || cx.a.isNotSure(Q.bus.psiUnrelated);
+      const psiRisk = anyNotSure || (psi80 === 'yes' && results !== 'yes') || (psi80 === 'no' && results === 'no' && unrelated === 'no');
       const opening = (cx.visible.has(Q.bus.priorDeferred) ? cx.a.cents(Q.bus.priorDeferred) : undefined) ?? 0;
       const tests = cx.visible.has(Q.bus.lossTests) ? cx.a.list(Q.bus.lossTests) : undefined;
       activity({
         activityId: 'main', itemId: null, name: cx.a.string(Q.bus.name)?.trim() || 'Business', income, expenses, expenseParts: itemised, opening, tests,
-        inputs: [Q.bus.income, Q.bus.expenses, ...(incomeLines.length ? [Q.bus.incomeLineAmount] : []), ...(expenseLines.length ? [Q.bus.expenseLineAmount, Q.bus.expenseLinePct] : []), Q.bus.psi80, Q.bus.psiResults, ...(opening ? [Q.bus.priorDeferred] : []), ...(tests ? [Q.bus.lossTests] : [])],
-        psiRisk: (psi80 === 'yes' || psiNotSure) && results !== 'yes', incomeKey: Q.bus.income,
+        inputs: [Q.bus.income, Q.bus.expenses, ...(incomeLines.length ? [Q.bus.incomeLineAmount] : []), ...(expenseLines.length ? [Q.bus.expenseLineAmount, Q.bus.expenseLinePct] : []), Q.bus.psi80, Q.bus.psiResults, Q.bus.psiUnrelated, ...(opening ? [Q.bus.priorDeferred] : []), ...(tests ? [Q.bus.lossTests] : [])],
+        psiRisk, incomeKey: Q.bus.income,
       });
     }
   }
@@ -363,7 +381,9 @@ export function computeIncome(cx: CalcContext): IncomeResult {
     else add({ idPrefix: 'income.pt.share', itemId, label: `Partnership/trust income share${suffix}`, cents, category: 'partnership_trust', inputs: [Q.bus.ptShare], formula: `${cents / 100}`, ruleId: `${fy}.income.partnership`, treatment: 'I', key: keyOf(Q.bus.ptShare, itemId) });
   }
   for (const { itemId, cents } of cx.centsInstances(Q.bus.ptCredits)) {
-    res.frankingCreditsCents += add({ idPrefix: 'income.pt.credits', itemId, label: 'Partnership/trust franking credits', cents, category: 'franking_credit', inputs: [Q.bus.ptCredits], formula: `franking credit ${cents / 100} grossed up into income`, ruleId: `${fy}.income.partnership`, treatment: 'I', key: keyOf(Q.bus.ptCredits, itemId) });
+    // The share of net income already includes the franking credit, so it is a credit only.
+    res.frankingCreditsCents += cents;
+    void itemId;
   }
 
   simple(Q.cgt.cryptoIncome, null, 'Crypto income (staking, airdrops)', 'crypto_income', 'I', `${fy}.income.crypto`);
@@ -396,6 +416,10 @@ export function computeIncome(cx: CalcContext): IncomeResult {
         note = 'Foreign residents are not taxed in Australia on foreign-sourced income.';
       } else {
         treatment = 'I';
+      }
+      if (type === 'other' && treatment === 'I') {
+        treatment = 'R';
+        note = 'Unclassified foreign income; listed for review.';
       }
       const c = add({ idPrefix: `income.${id}`, itemId: null, label: `Foreign ${type.replace(/_/g, ' ')} income`, cents, category: 'foreign', inputs: [id, Q.res.status], formula: `${cents / 100} (${treatment === 'I' ? 'assessable' : treatment === 'N' ? 'not assessable' : 'review'})`, ruleId: `${fy}.income.foreign`, treatment, key: id, ...(note ? { note } : {}) });
       if (treatment === 'I') res.foreignIncomeCents += c;

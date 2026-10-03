@@ -64,9 +64,10 @@ describe('income', () => {
     const unsure = run([a(Q.bus.income, c(50000)), a(Q.bus.expenses, c(10000)), notSure(Q.bus.psi80)]);
     expect(lineById(unsure, 'income.business').status).toBe('manual_review');
   });
-  it('partnership shares: positive in, negative reviewed, credits grossed up', () => {
+  it('partnership shares: positive in, negative reviewed, credits counted once (as a credit)', () => {
     const est = run([a(Q.bus.ptShare, c(2000), 'x1'), a(Q.bus.ptCredits, c(300), 'x1'), a(Q.bus.ptShare, c(-1000), 'x2')], { items: [item('x1', 'partnership_trust'), item('x2', 'partnership_trust', 1)] });
-    expect(est.totals.assessableIncomeCents).toBe(c(2300));
+    // The share of net income already includes the franking credit.
+    expect(est.totals.assessableIncomeCents).toBe(c(2000));
     expect(est.totals.creditsCents).toBe(c(300));
     expect(lineById(est, 'income.pt.share@x2').status).toBe('manual_review');
   });

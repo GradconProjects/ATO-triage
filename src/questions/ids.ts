@@ -137,6 +137,7 @@ export const Q = {
     // per type: gov.<type>.amount (money I), gov.<type>.withheld (money credit)
     amount: (type: string) => `gov.${type}.amount`,
     withheld: (type: string) => `gov.${type}.withheld`,
+    pensionKind: 'gov.pension.kind',    // single: age_pension | dsp_under_age | dsp_at_age | carer | not_sure
   },
   // M8 super income
   sup: {

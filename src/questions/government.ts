@@ -39,6 +39,12 @@ export const GOVERNMENT_QUESTIONS: Question[] = flatten(
   ...screening(Q.gov.received, 'government', 'Did you receive any of these government payments this year?', GOV_TYPES.filter((t) => t !== 'other').map((t) => opt(t, GOV_LABELS[t].option)), {
     help: 'Most Centrelink and DVA payments are taxable income, and some qualify you for the seniors and pensioners tax offset or the beneficiary tax offset.',
   }),
+  single(Q.gov.pensionKind, 'government', 'Which pension was it?', [
+    opt('age_pension', 'Age Pension', 'Taxable.'),
+    opt('dsp_under_age', 'Disability Support Pension, and I was under Age Pension age', 'Tax-free.'),
+    opt('dsp_at_age', 'Disability Support Pension, and I had reached Age Pension age', 'Taxable.'),
+    opt('carer', 'Carer Payment', 'Usually taxable; tax-free in some cases (for example when you and the person you care for are both under Age Pension age). Checked separately.'),
+  ], { showIf: includes(Q.gov.received, 'pension'), feeds: ['income'], help: 'The type decides whether the pension is taxable.' }),
   ...GOV_TYPES.flatMap(govQuestions),
 
   // ---- M8 super income ----

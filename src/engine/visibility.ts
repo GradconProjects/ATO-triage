@@ -43,6 +43,9 @@ export function evaluateCondition(c: Condition, answers: AnswerView, scope: Cond
   if ('not' in c) return !evaluateCondition(c.not, answers, scope);
   if ('occupation' in c) return scope.activeTags.has(c.occupation);
 
+  if ('anyItemGt' in c) {
+    return answers.recordsFor(c.q).some((r) => r.state === 'answered' && typeof r.value === 'number' && r.value > c.anyItemGt);
+  }
   if ('answered' in c) {
     return resolveRecord(answers, c.q, scope.itemId)?.state === 'answered';
   }

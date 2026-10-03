@@ -83,6 +83,7 @@ export const eq = (q: string, value: string): Condition => ({ q, eq: value });
 export const isIn = (q: string, values: string[]): Condition => ({ q, in: values });
 export const includes = (q: string, value: string): Condition => ({ q, includes: value });
 export const gt = (q: string, value: number): Condition => ({ q, gt: value });
+export const anyItemGt = (q: string, value: number): Condition => ({ q, anyItemGt: value });
 export const answered = (q: string): Condition => ({ q, answered: true });
 export const yes = (q: string): Condition => ({ q, eq: 'yes' });
 export const occ = (tag: OccupationTag): Condition => ({ occupation: tag });

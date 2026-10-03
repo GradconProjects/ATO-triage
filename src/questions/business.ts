@@ -168,9 +168,9 @@ export const BUSINESS_QUESTIONS: Question[] = flatten(
   single('bus.pt.type', 'business', 'Is it a partnership or a trust?', [opt('partnership', 'Partnership'), opt('trust', 'Trust')], { repeaterGroup: P, showIf: PT, feeds: ['income'] }),
   money(Q.bus.ptShare, 'business', 'What was your share of the net income (or loss) for the year?', {
     repeaterGroup: P, showIf: PT, allowNegative: true, income: { category: 'partnership_trust', treatment: 'I' }, feeds: ['income'],
-    help: 'From the distribution statement. Enter a partnership loss as a negative amount; losses are routed to review.',
+    help: 'From the distribution statement: your share of the net income, which already includes any franking credits. Enter a partnership loss as a negative amount; losses are routed to review.',
   }),
-  money(Q.bus.ptCredits, 'business', 'What franking credits or other tax credits came with the distribution?', {
+  money(Q.bus.ptCredits, 'business', 'What franking credits came with the distribution?', {
     repeaterGroup: P, showIf: PT, required: false, credit: 'franking_credit', feeds: ['credits'], validation: [{ kind: 'min', value: 0 }],
     help: 'Leave blank if none.',
   }),
