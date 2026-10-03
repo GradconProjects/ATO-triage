@@ -267,9 +267,12 @@ export const BUSINESS_LOSS_REVIEW: FlagRule = {
   questionIds: [Q.bus.income, Q.bus.expenses, Q.bus.ptShare],
   atoRef: ATO.losses,
   when: (a) => {
-    const income = a.cents(Q.bus.income);
-    const expenses = a.cents(Q.bus.expenses);
-    if (income !== undefined && expenses !== undefined && expenses > income) return true;
+    const lines = (q: string, g: string) => a.items(g).reduce((s, it) => s + (a.cents(q, it.id) ?? 0), 0);
+    const income = a.cents(Q.bus.income) ?? 0;
+    const expenses = a.cents(Q.bus.expenses) ?? 0;
+    const totalIncome = income + lines(Q.bus.incomeLineAmount, GROUPS.businessIncomeLine);
+    const totalExpenses = expenses + lines(Q.bus.expenseLineAmount, GROUPS.businessExpenseLine);
+    if (totalExpenses > 0 && totalExpenses > totalIncome) return true;
     return a.items(GROUPS.partnershipTrust).some((it) => (a.cents(Q.bus.ptShare, it.id) ?? 0) < 0);
   },
   message: () =>

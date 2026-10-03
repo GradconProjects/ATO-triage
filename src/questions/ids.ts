@@ -244,7 +244,18 @@ export const Q = {
     ptCredits: 'bus.pt.credits',        // money credit franking
     name: 'bus.name',                   // text: what the main business does (reusable detail)
     lossTests: 'bus.loss.tests',        // multi: income_20k | profit_3_of_5 | property_500k | assets_100k | none | not_sure
-    priorDeferred: 'bus.prior_deferred', // money: main business deferred non-commercial losses from earlier years (opening balance)
+    priorDeferred: 'bus.prior_deferred',
+    // Extra itemised income and expense entries for the main business (added to the totals above)
+    incomeMoreAny: 'bus.income_more.any',       // yes_no_unsure
+    incomeLineRepeater: 'bus.income_line',      // group 'business_income_line'
+    incomeLineName: 'bus.income_line.name',     // text
+    incomeLineAmount: 'bus.income_line.amount', // money
+    expenseMoreAny: 'bus.expense_more.any',     // yes_no_unsure
+    expenseLineRepeater: 'bus.expense_line',    // group 'business_expense_line'
+    expenseLineName: 'bus.expense_line.name',   // text
+    expenseLineKind: 'bus.expense_line.kind',   // single: materials | subcontractors | vehicle | phone_internet | insurance | rent | software | advertising | fees | equipment | other
+    expenseLineAmount: 'bus.expense_line.amount', // money
+    expenseLinePct: 'bus.expense_line.business_pct', // percent: business-use share (private part excluded) // money: main business deferred non-commercial losses from earlier years (opening balance)
     // Separate business activities (group 'business_activity'); the main business stays on the fields above.
     activityAny: 'bus.activity.any',    // yes_no_unsure
     activityRepeater: 'bus.activity',   // repeater, group 'business_activity'
@@ -449,6 +460,8 @@ export const GROUPS = {
   businessActivity: 'business_activity',
   toolItem: 'tool_item',
   customDeduction: 'custom_deduction',
+  businessIncomeLine: 'business_income_line',
+  businessExpenseLine: 'business_expense_line',
 } as const;
 
 /** Option values for the shared "paid / reimbursed" question. */

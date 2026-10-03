@@ -57,7 +57,7 @@ export const SPECIAL_INCOME_IDS = new Set<string>([
   Q.cgt.proceeds, Q.cgt.costBase, Q.cgt.priorLosses, Q.cgt.cryptoIncome, Q.cgt.derivativesNet,
   ...FOREIGN_TYPES.map((t) => Q.fgn.amount(t)),
   Q.fgn.taxPaid,
-  Q.bus.income, Q.bus.expenses, Q.bus.ptShare, Q.bus.ptCredits, Q.bus.priorDeferred,
+  Q.bus.income, Q.bus.expenses, Q.bus.incomeLineAmount, Q.bus.expenseLineAmount, Q.bus.ptShare, Q.bus.ptCredits, Q.bus.priorDeferred,
   Q.bus.activityIncome, Q.bus.activityExpSubscriptions, Q.bus.activityExpPlatform, Q.bus.activityExpOther, Q.bus.activityPriorDeferred,
   Q.chef.tipsAmount,
   Q.fam.spouseTaxableIncome, Q.fam.spouseRfb, Q.fam.spouseRsc,
@@ -300,17 +300,37 @@ export function computeIncome(cx: CalcContext): IncomeResult {
     res.deferredLosses.push(row);
   };
   {
-    const income = cx.visible.has(Q.bus.income) ? cx.a.cents(Q.bus.income) : undefined;
+    // Totals plus any itemised income and expense entries (each entered once).
+    const total = cx.visible.has(Q.bus.income) ? cx.a.cents(Q.bus.income) : undefined;
+    const incomeLines = cx.items(GROUPS.businessIncomeLine)
+      .map((it) => ({ name: cx.a.string(Q.bus.incomeLineName, it.id)?.trim() || 'income item', cents: cx.visible.has(keyOf(Q.bus.incomeLineAmount, it.id)) ? cx.a.cents(Q.bus.incomeLineAmount, it.id) : undefined }))
+      .filter((l): l is { name: string; cents: number } => l.cents !== undefined);
+    const expenseLines = cx.items(GROUPS.businessExpenseLine).flatMap((it) => {
+      const cents = cx.visible.has(keyOf(Q.bus.expenseLineAmount, it.id)) ? cx.a.cents(Q.bus.expenseLineAmount, it.id) : undefined;
+      if (cents === undefined) return [];
+      const pct = Math.max(0, Math.min(100, cx.a.number(Q.bus.expenseLinePct, it.id) ?? 100));
+      return [{ id: it.id, name: cx.a.string(Q.bus.expenseLineName, it.id)?.trim() || 'expense item', kind: cx.a.string(Q.bus.expenseLineKind, it.id), cents, pct, share: Math.round((cents * pct) / 100) }];
+    });
+    const income = total === undefined && incomeLines.length === 0 && expenseLines.length === 0 ? undefined : (total ?? 0) + incomeLines.reduce((s, l) => s + l.cents, 0);
     if (income !== undefined) {
-      const expenses = (cx.visible.has(Q.bus.expenses) ? cx.a.cents(Q.bus.expenses) : undefined) ?? 0;
+      // Equipment that lasts more than a year is not an outright expense: held for review.
+      for (const l of expenseLines.filter((x) => x.kind === 'equipment')) {
+        cx.review('business', `${l.name}: equipment lasting more than a year is usually claimed over its life (or under the small business rules), so the ${l.share / 100} is not deducted until checked.`, [Q.bus.expenseLineKind, Q.bus.expenseLineAmount], l.share);
+        cx.markUncertain(keyOf(Q.bus.expenseLineAmount, l.id));
+      }
+      const counted = expenseLines.filter((x) => x.kind !== 'equipment');
+      const expenses = ((cx.visible.has(Q.bus.expenses) ? cx.a.cents(Q.bus.expenses) : undefined) ?? 0) + counted.reduce((s, l) => s + l.share, 0);
+      const itemised = incomeLines.length || counted.length
+        ? ` (${[...incomeLines.map((l) => `+ ${l.name} ${l.cents / 100}`), ...counted.map((l) => `- ${l.name} ${l.share / 100}${l.pct < 100 ? ` (${l.pct}% of ${l.cents / 100})` : ''}`)].join(', ')})`
+        : '';
       const psi80 = cx.a.string(Q.bus.psi80);
       const psiNotSure = cx.a.isNotSure(Q.bus.psi80);
       const results = cx.a.string(Q.bus.psiResults);
       const opening = (cx.visible.has(Q.bus.priorDeferred) ? cx.a.cents(Q.bus.priorDeferred) : undefined) ?? 0;
       const tests = cx.visible.has(Q.bus.lossTests) ? cx.a.list(Q.bus.lossTests) : undefined;
       activity({
-        activityId: 'main', itemId: null, name: cx.a.string(Q.bus.name)?.trim() || 'Business', income, expenses, expenseParts: '', opening, tests,
-        inputs: [Q.bus.income, Q.bus.expenses, Q.bus.psi80, Q.bus.psiResults, ...(opening ? [Q.bus.priorDeferred] : []), ...(tests ? [Q.bus.lossTests] : [])],
+        activityId: 'main', itemId: null, name: cx.a.string(Q.bus.name)?.trim() || 'Business', income, expenses, expenseParts: itemised, opening, tests,
+        inputs: [Q.bus.income, Q.bus.expenses, ...(incomeLines.length ? [Q.bus.incomeLineAmount] : []), ...(expenseLines.length ? [Q.bus.expenseLineAmount, Q.bus.expenseLinePct] : []), Q.bus.psi80, Q.bus.psiResults, ...(opening ? [Q.bus.priorDeferred] : []), ...(tests ? [Q.bus.lossTests] : [])],
         psiRisk: (psi80 === 'yes' || psiNotSure) && results !== 'yes', incomeKey: Q.bus.income,
       });
     }

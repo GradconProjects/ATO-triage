@@ -1,7 +1,7 @@
 /** M13 business, sole trader, partnerships and trusts. Universal; answering "yes" to sole trader adds the sole_trader tag. */
 import type { Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
-import { flatten, money, multi, noneOption, opt, repeater, single, text, yes, yesNoUnsure } from './shared';
+import { all, flatten, money, multi, noneOption, opt, percent, repeater, single, text, yes, yesNoUnsure } from './shared';
 
 const BA = GROUPS.businessActivity;
 const BA_ON = yes(Q.bus.activityAny);
@@ -16,6 +16,10 @@ const LOSS_TEST_OPTIONS = [
 const P = GROUPS.partnershipTrust;
 const ST = yes(Q.bus.soleTrader);
 const PT = yes(Q.bus.ptAny);
+const BIL = GROUPS.businessIncomeLine;
+const BEL = GROUPS.businessExpenseLine;
+const INCOME_MORE = all(ST, yes(Q.bus.incomeMoreAny));
+const EXPENSE_MORE = all(ST, yes(Q.bus.expenseMoreAny));
 
 export const BUSINESS_QUESTIONS: Question[] = flatten(
   yesNoUnsure(Q.bus.soleTrader, 'business', 'Did you run a business as a sole trader this year?', {
@@ -36,6 +40,49 @@ export const BUSINESS_QUESTIONS: Question[] = flatten(
     showIf: ST, calc: { business: 'expenses' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
     help: 'Costs of running the business: materials, subcontractors, insurance, vehicle, phone, software. Keep the breakdown for your records; we ask for the total here.',
   }),
+  // ---- Extra itemised income and expenses (added to the totals above) ----
+  yesNoUnsure(Q.bus.incomeMoreAny, 'business', 'Do you want to add more business income, item by item?', {
+    showIf: ST, required: false, feeds: ['business'],
+    help: 'For example a second client, a platform payout or a grant. Each item is added to the income above, so do not include anything already counted there.',
+  }),
+  repeater(Q.bus.incomeLineRepeater, 'business', 'More business income', {
+    groupId: BIL, itemLabel: 'Income item', addLabel: 'Add more income', minItems: 1, labelFrom: Q.bus.incomeLineName,
+  }, { showIf: INCOME_MORE }),
+  text(Q.bus.incomeLineName, 'business', 'What was this income?', { repeaterGroup: BIL, showIf: INCOME_MORE, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
+  money(Q.bus.incomeLineAmount, 'business', 'How much was it for the year?', {
+    repeaterGroup: BIL, showIf: INCOME_MORE, calc: { business: 'income' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Excluding GST if you are registered.',
+  }),
+  yesNoUnsure(Q.bus.expenseMoreAny, 'business', 'Do you want to add more business expenses, item by item?', {
+    showIf: ST, required: false, feeds: ['business'],
+    help: 'Each item is added to the expenses above, so do not include anything already counted there. Personal expenses (for example your employee work deductions) do not go here.',
+  }),
+  repeater(Q.bus.expenseLineRepeater, 'business', 'More business expenses', {
+    groupId: BEL, itemLabel: 'Expense item', addLabel: 'Add more expenses', minItems: 1, labelFrom: Q.bus.expenseLineName,
+  }, { showIf: EXPENSE_MORE }),
+  text(Q.bus.expenseLineName, 'business', 'What was this expense?', { repeaterGroup: BEL, showIf: EXPENSE_MORE, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
+  single(Q.bus.expenseLineKind, 'business', 'What type of expense was it?', [
+    opt('materials', 'Materials or stock'),
+    opt('subcontractors', 'Subcontractors or contract labour'),
+    opt('vehicle', 'Vehicle costs for the business'),
+    opt('phone_internet', 'Phone and internet'),
+    opt('insurance', 'Business insurance'),
+    opt('rent', 'Rent or premises'),
+    opt('software', 'Software and subscriptions'),
+    opt('advertising', 'Advertising'),
+    opt('fees', 'Bank, accounting or professional fees'),
+    opt('equipment', 'Equipment or tools that last more than a year', 'Usually claimed over its life (or under small business rules), so it is checked separately.'),
+    opt('other', 'Other'),
+  ], { repeaterGroup: BEL, showIf: EXPENSE_MORE, feeds: ['business'] }),
+  money(Q.bus.expenseLineAmount, 'business', 'How much was it for the year?', {
+    repeaterGroup: BEL, showIf: EXPENSE_MORE, calc: { business: 'expenses' }, feeds: ['business'], validation: [{ kind: 'min', value: 0 }],
+    help: 'Excluding GST if you are registered.',
+  }),
+  percent(Q.bus.expenseLinePct, 'business', 'What percentage was for the business? (optional)', {
+    repeaterGroup: BEL, showIf: EXPENSE_MORE, required: false, feeds: ['business'],
+    help: 'Only the business share counts. Leave blank if it was 100% for the business.',
+  }),
+
   yesNoUnsure(Q.bus.gst, 'business', 'Were you registered for GST?', {
     showIf: ST, feeds: ['business'],
     help: 'If registered, enter income and expenses without GST. Registration is required once turnover reaches $75,000.',
