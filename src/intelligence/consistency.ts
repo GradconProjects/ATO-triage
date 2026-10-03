@@ -5,6 +5,7 @@
 import { Q, GROUPS, PAID_OPTIONS } from '../questions/ids';
 import { answerKey, formatCents, instancesOf, perInstance } from './helpers';
 import type { FlagInstance, FlagRule } from './types';
+import { carExceptions } from '../calc/modules/car';
 
 const ATO = {
   reimbursements: 'https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/deductions-for-work-expenses-and-other-expenses',
@@ -48,8 +49,8 @@ export const CAR_HOME_TO_WORK: FlagRule = {
     const trips = a.list(Q.ded.carTripTypes) ?? [];
     if (!trips.includes('home_to_work')) return false;
     if (a.isNotSure(Q.ded.carException)) return false;
-    const exception = a.string(Q.ded.carException);
-    return exception === undefined || exception === 'none';
+    const exceptions = carExceptions(a);
+    return exceptions.length === 0 || exceptions.every((e) => e === 'none');
   },
   message: () =>
     'Some of your car trips were between home and work. Ordinary travel between home and your regular workplace is private, so those kilometres have been excluded. Check whether one of the exceptions (bulky tools with no secure storage at work, shifting workplaces, or home as a genuine work base) applies to you.',

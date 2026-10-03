@@ -103,7 +103,7 @@ const run = () =>
       a(Q.ded.carAny, 'yes'),
       a('ded.car.paid', 'paid_not_reimbursed'),
       a(Q.ded.carTripTypes, ['home_to_work']),
-      a(Q.ded.carException, 'bulky_no_storage'),
+      a(Q.ded.carException, ['bulky_no_storage']),
       a(Q.ded.carMethod, 'cents_per_km'),
       a(Q.ded.carKm, 3000),
       a('ded.car.evidence', 'diary'),

@@ -1,6 +1,17 @@
 import { Q } from '../../questions/ids';
 import type { CalcContext } from '../context';
 import { pct } from '../money';
+
+/**
+ * Home-to-work exceptions ticked (multi choice). Answers saved while the question was single
+ * choice are a plain string; they are read as a one-item list so nothing entered is lost.
+ */
+export function carExceptions(a: { list(id: string): string[] | undefined; string(id: string): string | undefined }): string[] {
+  const list = a.list(Q.ded.carException);
+  if (list) return list;
+  const one = a.string(Q.ded.carException);
+  return one ? [one] : [];
+}
 import { resolvePaid, weakEvidence } from '../reimbursement';
 
 const CAR_BASE = 'ded.car';
@@ -64,13 +75,17 @@ export function computeCar(cx: CalcContext): number {
       return toReview('Trip types not answered, so home-to-work travel cannot be separated.', [Q.ded.carTripTypes], cappedKm * rate, `${totalKm} km x ${rate}c (trip types missing)`);
     }
     if (trips.includes('home_to_work')) {
-      const exception = cx.a.string(Q.ded.carException);
+      const exceptions = carExceptions(cx.a);
+      // Bulky tools with no storage, or itinerant work, each make the trips work travel on their own.
+      const exceptionApplies = exceptions.includes('bulky_no_storage') || exceptions.includes('itinerant');
       // "Home as a base of work" is rare and depends on the facts (starting some work at home is
-      // not enough), so it is never accepted automatically: it goes to review.
-      if (exception === 'home_base') {
+      // not enough), so when it is the only exception it is never accepted automatically: review.
+      if (!exceptionApplies && exceptions.includes('home_base')) {
         return toReview('Home-to-work trips with a claimed "home base" exception: whether home was a genuine base of work depends on the actual conditions, so this is assessed manually.', [Q.ded.carException, Q.ded.carTripTypes, Q.ded.carKm], Math.min(km, rules.carMaxKm) * rules.carCentsPerKm, `${km} km (home-base exception to be assessed) x ${rules.carCentsPerKm}c`);
       }
-      const exceptionApplies = exception === 'bulky_no_storage' || exception === 'itinerant';
+      if (!exceptionApplies && (exceptions.includes('not_sure') || cx.a.isNotSure(Q.ded.carException))) {
+        return toReview('Not sure whether an exception applied to the home-to-work trips; they are held for review, not claimed or dropped.', [Q.ded.carException, Q.ded.carTripTypes, ...kmIds], cappedKm * rate, `${totalKm} km (exception not confirmed) x ${rate}c`);
+      }
       const onlyHomeToWork = trips.every((t) => t === 'home_to_work');
       if (!exceptionApplies) {
         const amount = cappedKm * rate;

@@ -267,7 +267,7 @@ export const Q = {
     carCount: 'ded.car.count',          // single: one | two (cents per km: cars used for work)
     carKm2: 'ded.car.km2',              // km (second car, cents per km)
     carTripTypes: 'ded.car.trip_types', // multi: between_workplaces | client_to_client | home_to_work | bulky_tools | itinerant | other | not_sure
-    carException: 'ded.car.exception',  // single: bulky_no_storage | itinerant | home_base | none | not_sure
+    carException: 'ded.car.exception',  // multi (legacy saved answers may be a single string): bulky_no_storage | itinerant | home_base | none | not_sure
     carLogbookPct: 'ded.car.logbook_pct', // percent
     carTotalCosts: 'ded.car.total_costs', // money
     carPaid: 'ded.car.paid',

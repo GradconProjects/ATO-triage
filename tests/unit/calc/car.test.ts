@@ -79,4 +79,24 @@ describe('car expenses', () => {
     expect(lineById(est, 'ded.car').status).toBe('computed');
     expect(est.uncertainInputs).toContain(Q.ded.carKm);
   });
+  describe('home-to-work exceptions (select all that apply)', () => {
+    const trip = (exception: unknown) => run([a(Q.ded.carAny, 'yes'), a(Q.ded.carMethod, 'cents_per_km'), a(Q.ded.carTripTypes, ['home_to_work']), a(Q.ded.carException, exception), a(Q.ded.carKm, 1000)]);
+    it('several exceptions ticked: a valid one counts the trips', () => {
+      expect(lineById(trip(['bulky_no_storage', 'itinerant']), 'ded.car').status).toBe('computed');
+      expect(lineById(trip(['home_base', 'itinerant']), 'ded.car').status).toBe('computed');
+    });
+    it('home base on its own is still reviewed', () => {
+      expect(lineById(trip(['home_base']), 'ded.car').status).toBe('manual_review');
+    });
+    it('none: home-to-work trips are private', () => {
+      expect(lineById(trip(['none']), 'ded.car').status).toBe('excluded');
+    });
+    it('not sure is review, never excluded', () => {
+      expect(lineById(trip(['not_sure']), 'ded.car').status).toBe('manual_review');
+    });
+    it('answers saved as a single choice are still read', () => {
+      expect(lineById(trip('bulky_no_storage'), 'ded.car').status).toBe('computed');
+      expect(lineById(trip('none'), 'ded.car').status).toBe('excluded');
+    });
+  });
 });

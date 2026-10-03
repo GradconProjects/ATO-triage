@@ -92,7 +92,7 @@ const ANSWERS: A[] = [
   // Car: home-to-work trips with no exception
   a(Q.ded.carAny, 'yes'),
   a(Q.ded.carTripTypes, ['between_workplaces', 'home_to_work']),
-  a(Q.ded.carException, 'none'),
+  a(Q.ded.carException, ['none']),
   a(Q.ded.carMethod, 'cents_per_km'),
   a(Q.ded.carCount, 'one'),
   a(Q.ded.carKm, 1580),

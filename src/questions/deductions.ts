@@ -60,14 +60,14 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     opt('bulky_tools', 'Carrying bulky tools or equipment the employer required', 'Heavy or awkward items you had to bring because there was no safe place to leave them at work.'),
     opt('itinerant', 'To many different sites, with no fixed workplace', 'Itinerant work: the job itself involves travelling between changing sites.'),
   ], { occupationTags: ['vehicle_travel'], atoRef: ATO.travel, showIf: CAR_ON, help: 'The type of trip decides whether the kilometres count. Tick every kind you made.' }),
-  single(Q.ded.carException, D, 'Which of these applied to your home-to-work trips?', [
+  multi(Q.ded.carException, D, 'Which of these applied to your home-to-work trips? Select all that apply.', [
     opt('bulky_no_storage', 'I carried bulky tools the employer required, and there was no secure storage at the work site', 'All three parts must be true: bulky, required by the employer, and no safe storage at work.'),
     opt('itinerant', 'My job was itinerant: I travelled to different sites as a normal part of the work'),
     opt('home_base', 'My home was a genuine base of work: I started work at home before travelling', 'Rare. Doing a few emails at home does not make it a work base.'),
-    opt('none', 'None of these', 'Then the home-to-work trips are private and are left out.'),
+    { ...noneOption(), help: 'Then the home-to-work trips are private and are left out.' },
   ], {
     occupationTags: ['vehicle_travel'], atoRef: ATO.travel, showIf: all(CAR_ON, includes(Q.ded.carTripTypes, 'home_to_work')), feeds: ['deductions'],
-    help: 'Home-to-work travel is private unless one of these narrow exceptions applies. We only count it if you pick one.',
+    help: 'Home-to-work travel is private unless one of these narrow exceptions applies. Tick every one that applied; we only count the trips if at least one does.',
   }),
   single(Q.ded.carMethod, D, 'Which method do you want to use for car expenses?', [
     opt('cents_per_km', 'Cents per kilometre (up to 5,000 work km, no receipts needed)', 'A set rate per work kilometre covers all running costs. You need a reasonable basis for the kilometres, such as a diary of trips.'),

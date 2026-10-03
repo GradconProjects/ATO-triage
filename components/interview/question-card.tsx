@@ -122,7 +122,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
             name={`${id}-choice`}
             labelledBy={`${id}-label`}
             options={options}
-            selected={isNotSure ? ['not_sure'] : Array.isArray(value) ? (value as string[]) : []}
+            selected={isNotSure ? ['not_sure'] : Array.isArray(value) ? (value as string[]) : typeof value === 'string' ? [value] : []}
             multi
             readOnly={readOnly}
             onChange={(vals) => {
@@ -424,6 +424,7 @@ export function displayValue(q: Question, v: unknown): string {
     const opts = q.type === 'yes_no_unsure' ? YES_NO_UNSURE : (q.options ?? []);
     return opts.find((o) => o.value === v)?.label ?? v;
   }
+  if (q.type === 'multi' && typeof v === 'string') return q.options?.find((o) => o.value === v)?.label ?? v;
   if (q.type === 'multi' && Array.isArray(v)) return v.map((x) => q.options?.find((o) => o.value === x)?.label ?? String(x)).join(', ');
   if (q.type === 'date_range' && typeof v === 'object' && v && 'from' in v) return `${(v as DateRangeValue).from} to ${(v as DateRangeValue).to}`;
   if (q.type === 'percent') return `${v}%`;

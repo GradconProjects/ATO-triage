@@ -35,6 +35,8 @@ describe('CAR_HOME_TO_WORK', () => {
   it('does not fire with an exception, a not-sure exception, or no home-to-work trips', () => {
     expect(codes(flagsFor({ records: [rec(Q.ded.carTripTypes, ['home_to_work']), rec(Q.ded.carException, 'bulky_no_storage')] }))).not.toContain('CAR_HOME_TO_WORK');
     expect(codes(flagsFor({ records: [rec(Q.ded.carTripTypes, ['home_to_work']), notSure(Q.ded.carException)] }))).not.toContain('CAR_HOME_TO_WORK');
+    expect(codes(flagsFor({ records: [rec(Q.ded.carTripTypes, ['home_to_work']), rec(Q.ded.carException, ['none'])] }))).toContain('CAR_HOME_TO_WORK');
+    expect(codes(flagsFor({ records: [rec(Q.ded.carTripTypes, ['home_to_work']), rec(Q.ded.carException, ['home_base', 'bulky_no_storage'])] }))).not.toContain('CAR_HOME_TO_WORK');
     expect(codes(flagsFor({ records: [rec(Q.ded.carTripTypes, ['between_workplaces'])] }))).not.toContain('CAR_HOME_TO_WORK');
   });
 });
