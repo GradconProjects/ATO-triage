@@ -10,7 +10,7 @@ import { ELIGIBLE_CLOTHING, ELIGIBLE_DSW_CLOTHING, INELIGIBLE_CHEF_CLOTHING } fr
 
 /** Ids owned by the special modules (car, home office, laundry, super contributions). */
 export const SPECIAL_DEDUCTION_IDS = new Set<string>([
-  Q.ded.carAny, Q.ded.carMethod, Q.ded.carKm, Q.ded.carCount, Q.ded.carKm2, Q.ded.carTripTypes, Q.ded.carException, Q.ded.carLogbookPct, Q.ded.carTotalCosts, Q.ded.carPaid, Q.ded.carEvidence,
+  Q.ded.carAny, Q.ded.carMethod, Q.ded.carKm, Q.ded.carCount, Q.ded.carKm2, Q.ded.carTripTypes, Q.ded.carException, Q.ded.carLogbookPct, Q.ded.carTotalCosts, Q.ded.carLogbookPct2, Q.ded.carTotalCosts2, Q.ded.carPaid, Q.ded.carEvidence,
   Q.ded.wfhAny, Q.ded.wfhMethod, Q.ded.wfhHours, Q.ded.wfhHoursRecord, Q.ded.wfhActualCosts, Q.ded.wfhWorkPct,
   Q.ded.laundryAny, Q.ded.laundryLoadsWorkOnly, Q.ded.laundryLoadsMixed, Q.ded.laundryWeeks, Q.ded.laundryEvidence,
   Q.supc.personalAny, Q.supc.personalAmount, Q.supc.noi, Q.supc.tsbRange, Q.supc.carryForward, Q.supc.spouseAmount,
@@ -37,6 +37,8 @@ export const KNOWN_DEDUCTIONS: Record<string, KnownDeduction> = {
   [Q.ded.subscriptionsAmount]: { category: 'subscriptions', base: 'ded.subscriptions', treatment: 'D' },
   [Q.ded.sunAmount]: { category: 'sun_protection', base: 'ded.sun', treatment: 'D' },
   [Q.ded.taxAffairsAmount]: { category: 'tax_affairs', base: 'ded.tax_affairs', treatment: 'D' },
+  [Q.ded.compCostsAmount]: { category: 'compensation_costs', base: 'ded.comp_costs', treatment: { byQuestion: Q.ded.compCostsFor, map: { lost_earnings: 'D', capital: 'N', both: 'R' } } },
+  [Q.ded.customAmount]: { category: 'custom', base: 'ded.custom', treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', private_or_capital: 'N' } } },
   [Q.ded.giftsAmount]: { category: 'gifts_donations', base: 'ded.gifts', treatment: 'D' },
   [Q.ded.incomeProtectionAmount]: { category: 'income_protection', base: 'ded.income_protection', treatment: 'D' },
   [Q.ded.investmentAmount]: { category: 'investment', base: 'ded.investment', treatment: 'D' },
@@ -59,7 +61,7 @@ export const KNOWN_DEDUCTIONS: Record<string, KnownDeduction> = {
   [Q.chef.overtimeMealAmount]: { category: 'other_work', base: 'chef.overtime_meal', treatment: { byQuestion: Q.chef.overtimeMealAllowance, map: { yes: 'D', no: 'N' } } },
 };
 
-export const NON_WORK_CATEGORIES = new Set<DeductionCategory>(['gifts_donations', 'tax_affairs', 'income_protection', 'personal_super', 'investment', 'rental']);
+export const NON_WORK_CATEGORIES = new Set<DeductionCategory>(['gifts_donations', 'tax_affairs', 'compensation_costs', 'income_protection', 'personal_super', 'investment', 'rental']);
 
 export const CATEGORY_LABELS: Record<DeductionCategory, string> = {
   car: 'Car expenses',
@@ -79,6 +81,8 @@ export const CATEGORY_LABELS: Record<DeductionCategory, string> = {
   other_work: 'Other work expenses',
   gifts_donations: 'Gifts and donations',
   tax_affairs: 'Cost of managing tax affairs',
+  compensation_costs: 'Costs of getting compensation payments',
+  custom: 'Other deductions you added',
   income_protection: 'Income protection insurance',
   personal_super: 'Personal super contribution',
   investment: 'Investment expenses',

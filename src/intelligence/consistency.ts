@@ -128,6 +128,19 @@ export const PRIOR_LOSS_CLASSIFICATION: FlagRule = {
     `Your ${formatCents(a.cents(Q.cgt.priorLosses) ?? 0)} of carried-forward capital losses includes futures or derivatives losses. Those are often revenue or business losses rather than capital losses. They have been kept exactly as classified in the earlier year. Ask a registered tax agent to check; if the earlier year is amended, record the correction and its evidence, and update the balance.`,
 };
 
+export const CUSTOM_DEDUCTIONS_CHECK: FlagRule = {
+  code: 'CUSTOM_DEDUCTIONS_CHECK',
+  kind: 'review',
+  severity: 'info',
+  questionIds: [Q.ded.customItem, Q.ded.customPurpose, Q.ded.customAmount],
+  atoRef: 'https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim',
+  when: (a, ctx) => a.items(GROUPS.customDeduction).some((it) => ctx.visible.has(`${Q.ded.customAmount}@${it.id}`) && (a.cents(Q.ded.customAmount, it.id) ?? 0) > 0),
+  message: (a) => {
+    const names = a.items(GROUPS.customDeduction).map((it) => `${a.string(Q.ded.customItem, it.id) ?? 'unnamed'} (${formatCents(a.cents(Q.ded.customAmount, it.id) ?? 0)})`);
+    return `You added deductions not covered by the standard questions: ${names.join(', ')}. Each must be for earning your income, not private or capital, and have a record. Check each against the ATO guidance before lodging.`;
+  },
+};
+
 export const DERIVATIVES_CLASSIFY: FlagRule = {
   code: 'DERIVATIVES_CLASSIFY',
   kind: 'review',
@@ -246,4 +259,4 @@ export const PHI_ELECTION_CONFLICT: FlagRule = perInstance(
   },
 );
 
-export const CONSISTENCY_RULES: FlagRule[] = [POSSIBLE_DUPLICATE, PHI_ELECTION_CONFLICT, EXPENSE_REIMBURSED, CAR_HOME_TO_WORK, LICENCE_FIRST, RENTAL_INITIAL_REPAIRS, PRIOR_LOSS_CLASSIFICATION, DERIVATIVES_CLASSIFY, DERIVATIVES_BUSINESS_MISSING];
+export const CONSISTENCY_RULES: FlagRule[] = [POSSIBLE_DUPLICATE, PHI_ELECTION_CONFLICT, EXPENSE_REIMBURSED, CAR_HOME_TO_WORK, LICENCE_FIRST, RENTAL_INITIAL_REPAIRS, PRIOR_LOSS_CLASSIFICATION, DERIVATIVES_CLASSIFY, DERIVATIVES_BUSINESS_MISSING, CUSTOM_DEDUCTIONS_CHECK];

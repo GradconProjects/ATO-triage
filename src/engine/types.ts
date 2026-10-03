@@ -237,6 +237,8 @@ export type DeductionCategory =
   | 'sun_protection'
   | 'first_aid'
   | 'other_work'
+  | 'custom'
+  | 'compensation_costs'
   | 'gifts_donations'
   | 'tax_affairs'
   | 'income_protection'

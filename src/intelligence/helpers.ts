@@ -60,6 +60,7 @@ export function salaryCents(estimate: Estimate): number {
 export const NON_WORK_DEDUCTION_CATEGORIES: readonly string[] = [
   'gifts_donations',
   'tax_affairs',
+  'compensation_costs',
   'income_protection',
   'personal_super',
   'investment',

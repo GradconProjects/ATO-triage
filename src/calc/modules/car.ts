@@ -44,7 +44,7 @@ export function computeCar(cx: CalcContext): number {
   const toReview = (reason: string, ids: string[], amount: number, formula: string) => {
     cx.setStatus('car', 'manual_review');
     cx.review('car', reason, ids, amount);
-    cx.markUncertain(Q.ded.carKm, Q.ded.carKm2, Q.ded.carTotalCosts);
+    cx.markUncertain(Q.ded.carKm, Q.ded.carKm2, Q.ded.carTotalCosts, Q.ded.carTotalCosts2);
     cx.lines.review({ id: 'ded.car', section: 'deductions', label: 'Car expenses', amountCents: amount, ruleId: `${rules.fy}.car`, inputs: [...inputs, ...ids], formula, note: reason, category: 'car' });
     return 0;
   };
@@ -106,6 +106,16 @@ export function computeCar(cx: CalcContext): number {
     formula = `${costs / 100} x ${lp}% logbook`;
     detail = { method: 'logbook', totalCostsCents: costs, logbookPct: lp };
     extraInputs.push(Q.ded.carTotalCosts, Q.ded.carLogbookPct);
+    if (cx.a.string(Q.ded.carCount) === 'two') {
+      // Each car is worked out from its own logbook and its own costs.
+      const costs2 = cx.a.cents(Q.ded.carTotalCosts2);
+      const lp2 = cx.a.number(Q.ded.carLogbookPct2);
+      if (costs2 === undefined || lp2 === undefined) return toReview('Second car: its own logbook percentage and running costs are needed.', [Q.ded.carTotalCosts2, Q.ded.carLogbookPct2], gross, `${formula} (second car missing)`);
+      gross += pct(costs2, lp2);
+      formula = `${formula} + second car ${costs2 / 100} x ${lp2}% logbook`;
+      detail = { ...detail, cars: 2, totalCosts2Cents: costs2, logbookPct2: lp2 };
+      extraInputs.push(Q.ded.carCount, Q.ded.carTotalCosts2, Q.ded.carLogbookPct2);
+    }
   } else {
     return toReview(cx.a.isNotSure(Q.ded.carMethod) ? 'Not sure which car method applies.' : 'Car method not answered.', [Q.ded.carMethod], 0, 'method unknown');
   }
@@ -114,7 +124,7 @@ export function computeCar(cx: CalcContext): number {
   if (paid.kind === 'excluded') return toExcluded(paid.note ?? 'Reimbursed.', paid.inputs, gross, formula);
   if (paid.kind === 'review') return toReview(paid.note ?? 'Reimbursement unknown.', paid.inputs, gross, formula);
   const net = paid.netCents;
-  if (weakEvidence(cx, CAR_BASE, null)) cx.markUncertain(Q.ded.carKm, Q.ded.carKm2, Q.ded.carTotalCosts);
+  if (weakEvidence(cx, CAR_BASE, null)) cx.markUncertain(Q.ded.carKm, Q.ded.carKm2, Q.ded.carTotalCosts, Q.ded.carTotalCosts2);
   cx.setStatus('car', 'computed');
   cx.lines.computed({
     id: 'ded.car', section: 'deductions', label: `Car expenses (${method === 'logbook' ? 'logbook' : 'cents per km'})`, amountCents: net,

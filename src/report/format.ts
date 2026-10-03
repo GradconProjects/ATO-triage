@@ -115,6 +115,8 @@ export function categoryLabel(id: string | undefined | null): string {
     other_work: 'Other work-related',
     gifts_donations: 'Gifts and donations',
     tax_affairs: 'Cost of managing tax affairs',
+    compensation_costs: 'Costs of getting compensation payments',
+    custom: 'Other deductions you added',
     income_protection: 'Income protection insurance',
     personal_super: 'Personal super contributions',
     investment: 'Investment expenses',

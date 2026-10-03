@@ -13,7 +13,7 @@
 import type { Question } from '../engine/types';
 import { GROUPS, Q } from './ids';
 import {
-  ATO, all, any, deductionSet, eq, evidenceQuestion, flatten, gt, includes, jobQuestion, km, money, multi, noneOption, not, num, occ, opt, otherText,
+  ATO, all, any, deductionSet, eq, evidenceQuestion, flatten, gt, includes, isIn, jobQuestion, km, money, multi, noneOption, not, num, occ, opt, otherText,
   paidQuestion, percent, repeater, screening, single, text, yes, yesNoUnsure,
 } from './shared';
 
@@ -37,6 +37,11 @@ const TAX_ON = yes('ded.tax_affairs.any');
 const GIFTS_ON = yes('ded.gifts.any');
 const IP_ON = yes('ded.income_protection.any');
 const INV_ON = yes('ded.investment.any');
+const COMP_COSTS_ON = yes(Q.ded.compCostsAny);
+const CUSTOM_ON = yes(Q.ded.customAny);
+const CUSTOM = GROUPS.customDeduction;
+// Any compensation received (weekly, arrears, lump sums, insurance payments).
+const COMP_RECEIVED = any(...['weekly', 'arrears', 'impairment', 'economic_loss', 'common_law', 'income_protection', 'sickness', 'legal', 'other'].map((v) => includes(Q.comp.received, v)));
 
 export const DEDUCTION_QUESTIONS: Question[] = flatten(
   // =========================================================================
@@ -75,8 +80,8 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR_ON, feeds: ['deductions'], calc: { special: 'car' }, help: 'You can use only one method per car per year.' }),
   single(Q.ded.carCount, D, 'How many of your own cars did you use for work trips?', [
     opt('one', 'One car'),
-    opt('two', 'Two cars', 'Each car gets its own 5,000 km limit under the cents-per-kilometre method.'),
-  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km')), feeds: ['deductions'], calc: { special: 'car' } }),
+    opt('two', 'Two cars', 'Cents per km: each car has its own 5,000 km limit. Logbook: each car needs its own logbook.'),
+  ], { occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, isIn(Q.ded.carMethod, ['cents_per_km', 'logbook'])), feeds: ['deductions'], calc: { special: 'car' } }),
   km(Q.ded.carKm, D, 'How many work kilometres did you drive this year (first car, if you used two)?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'cents_per_km')), feeds: ['deductions'], calc: { special: 'car' },
     validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
@@ -87,14 +92,23 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
     validation: [{ kind: 'min', value: 0 }, { kind: 'warnAbove', value: 5000, message: 'The cents-per-kilometre method is capped at 5,000 km per car.' }],
     help: 'Only work trips in the second car. The 5,000 km limit applies to each car separately.',
   }),
-  percent(Q.ded.carLogbookPct, D, 'What work-use percentage does your logbook show?', {
+  percent(Q.ded.carLogbookPct, D, 'What work-use percentage does your logbook show (first car, if you used two)?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook')), feeds: ['deductions'], calc: { special: 'car' },
     help: 'Work kilometres divided by total kilometres over the 12-week logbook period.',
   }),
-  money(Q.ded.carTotalCosts, D, 'What were the total running costs of the car for the year?', {
+  money(Q.ded.carTotalCosts, D, 'What were the total running costs of the car for the year (first car, if you used two)?', {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook')), feeds: ['deductions'], calc: { special: 'car' },
     deduction: { category: 'car', base: 'ded.car', treatment: 'D', matchesAllowance: ['car_km'] }, validation: [{ kind: 'min', value: 0 }],
     help: 'Fuel, registration, insurance, servicing, interest on a car loan, and decline in value. Before applying the work percentage.',
+  }),
+  percent(Q.ded.carLogbookPct2, D, 'What work-use percentage does the second car\'s logbook show?', {
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    help: 'From the second car\'s own 12-week logbook.',
+  }),
+  money(Q.ded.carTotalCosts2, D, 'What were the total running costs of the second car for the year?', {
+    occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: all(CAR_ON, eq(Q.ded.carMethod, 'logbook'), eq(Q.ded.carCount, 'two')), feeds: ['deductions'], calc: { special: 'car' },
+    validation: [{ kind: 'min', value: 0 }],
+    help: 'Fuel, servicing, insurance, registration, interest and decline in value for the second car only.',
   }),
   evidenceQuestion('ded.car', D, {
     occupationTags: ['vehicle_travel'], atoRef: ATO.car, showIf: CAR_ON, prompt: 'What records do you have for the car trips?',
@@ -395,6 +409,27 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
   }),
 
   // =========================================================================
+  // Costs of getting compensation payments (ATO ID 2010/209, ATO ID 2002/193, TD 93/29)
+  // =========================================================================
+  yesNoUnsure(Q.ded.compCostsAny, D, 'Did you pay legal fees or other costs to get your WorkCover or compensation payments?', {
+    atoRef: ATO.compensationCosts, feeds: ['deductions'], showIf: COMP_RECEIVED,
+    help: 'For example lawyer\'s fees, or reports the claim needed. Medical treatment itself is not a deduction. Costs the insurer paid or reimbursed do not count.',
+  }),
+  ...deductionSet({
+    base: 'ded.comp_costs', module: D, category: 'compensation_costs', atoRef: ATO.compensationCosts, showIf: COMP_COSTS_ON,
+    treatment: { byQuestion: Q.ded.compCostsFor, map: { lost_earnings: 'D', capital: 'N', both: 'R' }, fallback: 'R' },
+    prompt: 'How much did you pay in these costs this year?',
+    help: 'The amount you paid yourself this financial year, less anything reimbursed.',
+    purpose: [
+      single(Q.ded.compCostsFor, D, 'What were the costs for?', [
+        opt('lost_earnings', 'Getting payments for lost wages', 'Weekly payments or arrears of weekly payments. Deductible, even if the claim failed.'),
+        opt('capital', 'Getting a lump sum for the injury itself', 'Permanent impairment, common-law damages or loss of earning capacity. Not deductible.'),
+        opt('both', 'Both of these', 'Only the part for lost wages counts; it is split on a reasonable basis, such as the lawyer\'s itemised account.'),
+      ], { feeds: ['deductions'], help: 'The costs take the character of what you were claiming: income (deductible) or a capital amount (not deductible).' }),
+    ],
+  }),
+
+  // =========================================================================
   // Gifts and donations (universal)
   // =========================================================================
   yesNoUnsure('ded.gifts.any', D, 'Did you donate $2 or more to a charity this year?', {
@@ -455,5 +490,33 @@ export const DEDUCTION_QUESTIONS: Question[] = flatten(
       ], { feeds: ['deductions'] }),
       otherText('ded.investment.kind', D, { prompt: 'Describe the other investment costs' }),
     ],
+  }),
+
+  // =========================================================================
+  // Deductions not covered above (repeater)
+  // =========================================================================
+  yesNoUnsure(Q.ded.customAny, D, 'Did you pay for anything else to earn your income that is not covered above?', {
+    atoRef: ATO.deductions, feeds: ['deductions'], required: false,
+    help: 'Add each one with a short description. Each is checked against the ATO rules before it is relied on.',
+  }),
+  repeater(Q.ded.customRepeater, D, 'Other deductions', {
+    groupId: CUSTOM, itemLabel: 'Deduction', addLabel: 'Add another deduction', minItems: 1, labelFrom: Q.ded.customItem,
+  }, { atoRef: ATO.deductions, showIf: CUSTOM_ON, help: 'One entry per expense. Do not repeat anything already entered elsewhere.' }),
+  text(Q.ded.customItem, D, 'What was it?', { repeaterGroup: CUSTOM, atoRef: ATO.deductions, showIf: CUSTOM_ON, required: true, validation: [{ kind: 'maxLength', value: 120 }] }),
+  ...deductionSet({
+    base: 'ded.custom', module: D, category: 'custom', atoRef: ATO.deductions, repeaterGroup: CUSTOM, showIf: CUSTOM_ON,
+    treatment: { byQuestion: Q.ded.customConnection, map: { earning_income: 'D', private_or_capital: 'N' }, fallback: 'R' },
+    prompt: 'How much did you pay?',
+    purpose: [
+      text(Q.ded.customPurpose, D, 'How did it help you earn your income?', {
+        repeaterGroup: CUSTOM, atoRef: ATO.deductions, showIf: CUSTOM_ON, required: true, validation: [{ kind: 'maxLength', value: 300 }],
+        help: 'For example "union-required safety course" or "parking at a client site". This goes in the report for checking.',
+      }),
+      single(Q.ded.customConnection, D, 'Which of these is true?', [
+        opt('earning_income', 'I paid it to earn my income, it was not private, and it was not something that lasts for years', 'Counted, and listed for checking.'),
+        opt('private_or_capital', 'It was partly private, or something that lasts for years', 'Not counted here. Items lasting for years go under tools or equipment.'),
+      ], { repeaterGroup: CUSTOM, feeds: ['deductions'] }),
+    ],
+    workPct: true, workPctPrompt: 'What percentage of this cost was for work?',
   }),
 );

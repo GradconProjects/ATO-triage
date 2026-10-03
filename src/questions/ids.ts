@@ -269,6 +269,8 @@ export const Q = {
     carTripTypes: 'ded.car.trip_types', // multi: between_workplaces | client_to_client | home_to_work | bulky_tools | itinerant | other | not_sure
     carException: 'ded.car.exception',  // multi (legacy saved answers may be a single string): bulky_no_storage | itinerant | home_base | none | not_sure
     carLogbookPct: 'ded.car.logbook_pct', // percent
+    carLogbookPct2: 'ded.car.logbook_pct2', // percent (second car, logbook)
+    carTotalCosts2: 'ded.car.total_costs2', // money (second car, logbook)
     carTotalCosts: 'ded.car.total_costs', // money
     carPaid: 'ded.car.paid',
     carEvidence: 'ded.car.evidence',
@@ -320,6 +322,17 @@ export const Q = {
     subscriptionsAmount: 'ded.subscriptions.amount',
     sunAmount: 'ded.sun.amount',
     taxAffairsAmount: 'ded.tax_affairs.amount',
+    // Costs of getting compensation payments (legal fees, claim costs)
+    compCostsAny: 'ded.comp_costs.any',   // yes_no_unsure
+    compCostsFor: 'ded.comp_costs.for',   // single: lost_earnings | capital | both | not_sure
+    compCostsAmount: 'ded.comp_costs.amount',
+    // Deductions the user adds that are not covered by a question (repeater, group 'custom_deduction')
+    customAny: 'ded.custom.any',          // yes_no_unsure
+    customRepeater: 'ded.custom',
+    customItem: 'ded.custom.item',        // text: what it was
+    customPurpose: 'ded.custom.purpose',  // text: how it relates to earning income
+    customConnection: 'ded.custom.connection', // single: earning_income | private_or_capital | not_sure
+    customAmount: 'ded.custom.amount',
     giftsAmount: 'ded.gifts.amount',
     giftsDgr: 'ded.gifts.dgr',          // yes_no_unsure
     incomeProtectionAmount: 'ded.income_protection.amount',
@@ -434,6 +447,7 @@ export const GROUPS = {
   partnershipTrust: 'partnership_trust',
   businessActivity: 'business_activity',
   toolItem: 'tool_item',
+  customDeduction: 'custom_deduction',
 } as const;
 
 /** Option values for the shared "paid / reimbursed" question. */

@@ -25,6 +25,7 @@ const ATO_BASE = 'https://www.ato.gov.au/individuals-and-families/income-deducti
 const DED = `${ATO_BASE}/deductions-you-can-claim`;
 export const ATO = {
   deductions: DED,
+  compensationCosts: 'https://www.ato.gov.au/law/view/document?docid=AID/AID2010209',
   records: `${ATO_BASE}/records-you-need-to-keep`,
   car: `${DED}/cars-transport-and-travel/motor-vehicle-and-car-expenses`,
   travel: `${DED}/cars-transport-and-travel/trips-you-can-and-cant-claim`,
