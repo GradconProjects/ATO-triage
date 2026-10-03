@@ -23,9 +23,12 @@ export function repeaterQuestionForGroup(questions: readonly Question[], groupId
  * Card label for an item: the `labelFrom` answer when present, else the stored item label,
  * else `${itemLabel} ${index + 1}` by the item's position in its group.
  */
-export function itemLabel(spec: RepeaterSpec, answers: AnswerView, item: RepeaterItem): string {
+export function itemLabel(spec: RepeaterSpec, answers: AnswerView, item: RepeaterItem, questions?: readonly Question[]): string {
   if (spec.labelFrom) {
     const v = answers.string(spec.labelFrom, item.id)?.trim();
+    // A choice question names the card by its option label, not its stored code.
+    const option = v ? questions?.find((q) => q.id === spec.labelFrom)?.options?.find((o) => o.value === v) : undefined;
+    if (option) return option.label;
     if (v) return v;
   }
   if (item.label && item.label.trim()) return item.label.trim();

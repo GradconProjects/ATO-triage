@@ -154,6 +154,10 @@ export function validateAnswer(q: Question, value: unknown, ctx: CaseContext): V
         break;
       }
       const values = value as string[];
+      if (values.length === 0) {
+        errors.push('Choose at least one option, or "None of these"');
+        break;
+      }
       const options = q.options ?? [];
       const unknown = options.length > 0 ? values.filter((v) => !options.some((o) => o.value === v)) : [];
       for (const u of unknown) errors.push(`"${u}" is not one of the options`);

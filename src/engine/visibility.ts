@@ -164,3 +164,39 @@ export function hiddenAnswerUpdates(questions: readonly Question[], answers: Ans
   }
   return updates;
 }
+
+/**
+ * Rows to append so an answer that was hidden (`not_applicable_by_rule`) comes back when its
+ * question is visible again: the last real answer before it was hidden (same value, state and
+ * source) is re-appended as the newest version. Nothing entered is lost by toggling a parent.
+ */
+export function restoredAnswerUpdates(questions: readonly Question[], history: readonly AnswerRecord[], answers: AnswerView, visible: VisibleQuestion[]): AnswerRecord[] {
+  const bankIds = new Set(questions.map((q) => q.id));
+  const visibleKeys = visibleKeySet(visible);
+  const byKey = new Map<string, AnswerRecord[]>();
+  for (const r of history) {
+    const k = answerKey(r.questionId, r.repeaterItemId);
+    const list = byKey.get(k) ?? [];
+    list.push(r);
+    byKey.set(k, list);
+  }
+  const updates: AnswerRecord[] = [];
+  for (const rec of answers.records()) {
+    if (rec.state !== 'not_applicable_by_rule' || !bankIds.has(rec.questionId)) continue;
+    const key = answerKey(rec.questionId, rec.repeaterItemId);
+    if (!visibleKeys.has(key)) continue;
+    const earlier = (byKey.get(key) ?? []).filter((r) => r.version < rec.version && HIDEABLE_STATES.includes(r.state)).sort((a, b) => b.version - a.version)[0];
+    if (!earlier) continue;
+    updates.push({
+      questionId: rec.questionId,
+      repeaterItemId: rec.repeaterItemId,
+      value: earlier.value,
+      state: earlier.state,
+      source: earlier.source,
+      version: rec.version + 1,
+      ...(earlier.sourceRef ? { sourceRef: earlier.sourceRef } : {}),
+    });
+  }
+  return updates;
+}
+

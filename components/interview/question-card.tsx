@@ -54,6 +54,14 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
     onWrite({ questionId: q.id, repeaterItemId: itemId, value: v, state: s, source: 'user' });
   }
 
+  // Clearing a box (or unticking every option) removes the answer instead of saving an empty one.
+  function clear() {
+    if (readOnly || record === undefined || state === 'skipped') return;
+    setLocalError([]);
+    setWarnings([]);
+    onWrite({ questionId: q.id, repeaterItemId: itemId, value: null, state: 'skipped', source: 'user' });
+  }
+
   const errors = [...localError, ...(serverErrors ?? [])];
   const tip = questionTip(q.id, ctx.fy);
   const options = q.type === 'yes_no_unsure' ? YES_NO_UNSURE : (q.options ?? []);
@@ -127,6 +135,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
             readOnly={readOnly}
             onChange={(vals) => {
               if (vals.includes('not_sure')) write(['not_sure'], 'not_sure');
+              else if (vals.length === 0) clear();
               else write(vals);
             }}
           />
@@ -139,6 +148,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
             allowNegative={Boolean(q.allowNegative)}
             readOnly={readOnly}
             onCommit={(cents) => write(cents)}
+            onClear={clear}
           />
         ) : null}
         {q.type === 'number' || q.type === 'percent' || q.type === 'km' ? (
@@ -150,33 +160,35 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
             max={q.type === 'percent' ? 100 : undefined}
             readOnly={readOnly}
             onCommit={(n) => write(n)}
+            onClear={clear}
           />
         ) : null}
         {q.type === 'date' ? (
-          <input
+          <SyncedInput
             id={`${id}-input`}
             type="date"
-            aria-labelledby={`${id}-label`}
+            labelledBy={`${id}-label`}
             className="min-h-11 w-full max-w-xs rounded-md border border-border bg-card px-3"
-            defaultValue={typeof value === 'string' ? value : ''}
+            external={typeof value === 'string' ? value : ''}
             readOnly={readOnly}
-            onBlur={(e) => e.target.value && write(e.target.value)}
+            onCommit={(v) => (v ? write(v) : clear())}
           />
         ) : null}
         {q.type === 'date_range' ? (
-          <DateRangeInput id={id} fy={ctx.fy} value={value as DateRangeValue | undefined} readOnly={readOnly} onCommit={(v) => write(v)} />
+          <DateRangeInput id={id} fy={ctx.fy} value={value as DateRangeValue | undefined} readOnly={readOnly} onCommit={(v) => write(v)} onClear={clear} />
         ) : null}
         {q.type === 'text' ? (
-          <input
+          <SyncedInput
             id={`${id}-input`}
             type="text"
-            aria-labelledby={`${id}-label`}
+            labelledBy={`${id}-label`}
             className="min-h-11 w-full rounded-md border border-border bg-card px-3"
-            defaultValue={typeof value === 'string' ? value : ''}
+            external={typeof value === 'string' ? value : ''}
             readOnly={readOnly}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
+            onCommit={(raw) => {
+              const v = raw.trim();
               if (v) write(v);
+              else clear();
             }}
           />
         ) : null}
@@ -196,7 +208,7 @@ export function QuestionCard({ question: q, itemId, record, ctx, readOnly, onWri
           </a>
         </p>
       ) : null}
-      {isSkipped ? <p className="mt-2 text-xs text-warning">Skipped. Answer it or mark Not sure.</p> : null}
+      {isSkipped && q.required ? <p className="mt-2 text-xs text-warning">Skipped. Answer it or mark Not sure.</p> : null}
       {errors.map((e) => (
         <p key={e} role="alert" className="mt-2 text-sm text-danger">
           {e}
@@ -287,6 +299,42 @@ function ChoiceGroup({
   );
 }
 
+/**
+ * Local text for a typed box that follows the saved answer: while you type, your text is kept; when
+ * the box is not focused and the saved value changes (a confirmed import, a statement upload, another
+ * case), the box shows the saved value. Uses the "adjust state while rendering" pattern.
+ */
+function useSyncedText(external: string) {
+  const [text, setText] = useState(external);
+  const [seen, setSeen] = useState(external);
+  const [focused, setFocused] = useState(false);
+  if (external !== seen && !focused) {
+    setSeen(external);
+    setText(external);
+  }
+  return { text, setText, onFocus: () => setFocused(true), onBlurDone: () => setFocused(false) };
+}
+
+function SyncedInput({ id, type, labelledBy, className, external, readOnly, onCommit }: { id: string; type: 'text' | 'date'; labelledBy: string; className: string; external: string; readOnly?: boolean; onCommit(v: string): void }) {
+  const { text, setText, onFocus, onBlurDone } = useSyncedText(external);
+  return (
+    <input
+      id={id}
+      type={type}
+      aria-labelledby={labelledBy}
+      className={className}
+      value={text}
+      readOnly={readOnly}
+      onFocus={onFocus}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        onBlurDone();
+        if (text !== external) onCommit(text);
+      }}
+    />
+  );
+}
+
 function MoneyInput({
   id,
   labelledBy,
@@ -294,6 +342,7 @@ function MoneyInput({
   allowNegative,
   readOnly,
   onCommit,
+  onClear,
 }: {
   id: string;
   labelledBy: string;
@@ -301,8 +350,9 @@ function MoneyInput({
   allowNegative: boolean;
   readOnly?: boolean;
   onCommit(cents: number): void;
+  onClear(): void;
 }) {
-  const [text, setText] = useState(cents === null ? '' : formatCents(cents).replace('$', ''));
+  const { text, setText, onFocus, onBlurDone } = useSyncedText(cents === null ? '' : formatCents(cents).replace('$', ''));
   const [bad, setBad] = useState(false);
   return (
     <div className="flex max-w-xs items-center rounded-md border border-border bg-card focus-within:ring-2 focus-within:ring-primary">
@@ -318,9 +368,14 @@ function MoneyInput({
         value={text}
         readOnly={readOnly}
         placeholder="0.00"
+        onFocus={onFocus}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => {
-          if (text.trim() === '') return;
+          onBlurDone();
+          if (text.trim() === '') {
+            if (cents !== null) onClear();
+            return;
+          }
           const c = parseMoneyToCents(text);
           if (c === null || (!allowNegative && c < 0)) {
             setBad(true);
@@ -343,6 +398,7 @@ function NumberInput({
   max,
   readOnly,
   onCommit,
+  onClear,
 }: {
   id: string;
   labelledBy: string;
@@ -351,8 +407,9 @@ function NumberInput({
   max?: number;
   readOnly?: boolean;
   onCommit(n: number): void;
+  onClear(): void;
 }) {
-  const [text, setText] = useState(value === null ? '' : String(value));
+  const { text, setText, onFocus, onBlurDone } = useSyncedText(value === null ? '' : String(value));
   return (
     <div className="flex max-w-xs items-center rounded-md border border-border bg-card focus-within:ring-2 focus-within:ring-primary">
       <input
@@ -364,10 +421,16 @@ function NumberInput({
         readOnly={readOnly}
         min={0}
         max={max}
+        onFocus={onFocus}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => {
+          onBlurDone();
+          if (text.trim() === '') {
+            if (value !== null) onClear();
+            return;
+          }
           const n = Number(text.replace(/,/g, ''));
-          if (text.trim() === '' || !Number.isFinite(n)) return;
+          if (!Number.isFinite(n)) return;
           onCommit(n);
         }}
       />
@@ -380,10 +443,18 @@ function NumberInput({
   );
 }
 
-function DateRangeInput({ id, fy, value, readOnly, onCommit }: { id: string; fy: CaseContext['fy']; value: DateRangeValue | undefined; readOnly?: boolean; onCommit(v: DateRangeValue): void }) {
+function DateRangeInput({ id, fy, value, readOnly, onCommit, onClear }: { id: string; fy: CaseContext['fy']; value: DateRangeValue | undefined; readOnly?: boolean; onCommit(v: DateRangeValue): void; onClear(): void }) {
   const bounds = fyDateBounds(fy);
   const [from, setFrom] = useState(value?.from ?? '');
   const [to, setTo] = useState(value?.to ?? '');
+  // Follow the saved range when it changes from elsewhere (an import, another case).
+  const savedKey = `${value?.from ?? ''}|${value?.to ?? ''}`;
+  const [seen, setSeen] = useState(savedKey);
+  if (savedKey !== seen) {
+    setSeen(savedKey);
+    setFrom(value?.from ?? '');
+    setTo(value?.to ?? '');
+  }
   const wholeYear = from === bounds.from && to === bounds.to;
   const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
   function commit(f: string, t: string) {
@@ -395,6 +466,7 @@ function DateRangeInput({ id, fy, value, readOnly, onCommit }: { id: string; fy:
     setFrom(f);
     setTo(t);
     if (checked) commit(f, t);
+    else if (value) onClear();
   }
   const inputCls = 'min-h-11 rounded-md border border-border bg-card px-3 disabled:opacity-60';
   return (

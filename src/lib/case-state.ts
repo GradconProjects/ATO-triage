@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AnswerView } from '@/src/engine/answers';
-import { activeTagSet, computeProgress, hiddenAnswerUpdates, visibleKeySet, visibleQuestions, type Progress, type VisibleQuestion } from '@/src/engine';
+import { activeTagSet, computeProgress, hiddenAnswerUpdates, restoredAnswerUpdates, visibleKeySet, visibleQuestions, type Progress, type VisibleQuestion } from '@/src/engine';
 import type { AnswerRecord, CaseContext, FY, OccupationTag, RepeaterItem } from '@/src/engine/types';
 import { QUESTION_BANK } from '@/src/questions';
 import { appendAnswers, getCase, getProfile, listAnswers, listItems } from '@/src/lib/db/repo';
@@ -40,10 +40,15 @@ export async function loadCaseState(db: SupabaseClient, ownerId: string, caseId:
   if (!profile) return null;
   let [answers, items] = await Promise.all([listAnswers(db, caseId), listItems(db, caseId)]);
   let state = buildCaseState(caseRow, profile, answers, items);
-  const hidden = hiddenAnswerUpdates(QUESTION_BANK, state.view, state.visible);
-  if (hidden.length && caseRow.status !== 'final') {
+  // Reconcile until stable: hide answers whose question is hidden, and bring back answers whose
+  // question is visible again (restoring a parent can reveal its children, so a few passes).
+  for (let pass = 0; pass < 5 && caseRow.status !== 'final'; pass++) {
+    const hidden = hiddenAnswerUpdates(QUESTION_BANK, state.view, state.visible);
+    const restored = restoredAnswerUpdates(QUESTION_BANK, answers, state.view, state.visible);
+    const changes = [...hidden, ...restored];
+    if (!changes.length) break;
     // Rows always belong to the case owner, even when an admin is the one editing.
-    const appended = await appendAnswers(db, caseRow.owner_id, caseId, hidden.map((h) => ({ questionId: h.questionId, repeaterItemId: h.repeaterItemId, value: h.value, state: h.state, source: h.source })));
+    const appended = await appendAnswers(db, caseRow.owner_id, caseId, changes.map((h) => ({ questionId: h.questionId, repeaterItemId: h.repeaterItemId, value: h.value, state: h.state, source: h.source, ...(h.sourceRef ? { sourceRef: h.sourceRef } : {}) })));
     answers = [...answers, ...appended];
     items = state.items;
     state = buildCaseState(caseRow, profile, answers, items);

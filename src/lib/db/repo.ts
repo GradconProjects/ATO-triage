@@ -106,10 +106,13 @@ export async function createItem(db: Db, ownerId: string, caseId: string, groupI
   return { id: row.id, groupId: row.group_id, label: row.label, sortOrder: row.sort_order };
 }
 
-export async function deleteItem(db: Db, ownerId: string, itemId: string) {
-  const res = await db.from('repeater_items').delete().eq('id', itemId);
+/** Deletes an item only when it belongs to the given case. Returns false when nothing was deleted. */
+export async function deleteItem(db: Db, ownerId: string, itemId: string, caseId: string): Promise<boolean> {
+  const res = await db.from('repeater_items').delete().eq('id', itemId).eq('case_id', caseId).select('id');
   if (res.error) throw new Error(res.error.message);
+  if (!res.data || res.data.length === 0) return false;
   await audit(db, ownerId, 'repeater_item', itemId, 'delete');
+  return true;
 }
 
 // ---------- answers ----------
@@ -127,7 +130,18 @@ export function rowToRecord(r: AnswerRow): AnswerRecord {
 
 /** All answer rows (every version) for a case, oldest first. */
 export async function listAnswerRows(db: Db, caseId: string): Promise<AnswerRow[]> {
-  return unwrap(await db.from('answers').select('*').eq('case_id', caseId).order('version', { ascending: true })) as AnswerRow[];
+  // Read in pages: the API returns at most 1,000 rows per request, and a long-edited case has more.
+  // Within a version, rows are in save order, so if two saves ever share a version the later wins.
+  const PAGE = 1000;
+  const rows: AnswerRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const page = unwrap(
+      await db.from('answers').select('*').eq('case_id', caseId).order('version', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + PAGE - 1),
+    ) as AnswerRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return rows;
 }
 
 export async function listAnswers(db: Db, caseId: string): Promise<AnswerRecord[]> {

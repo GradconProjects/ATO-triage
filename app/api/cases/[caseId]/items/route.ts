@@ -45,7 +45,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ c
   if ('error' in a) return a.error;
   const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
-  await deleteItem(a.supabase, a.user.id, parsed.data.itemId);
+  const deleted = await deleteItem(a.supabase, a.user.id, parsed.data.itemId, caseId);
+  if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const state = await loadCaseState(a.supabase, a.user.id, caseId);
   return NextResponse.json({ ok: true, state: state ? serializeCaseState(state) : null });
 }

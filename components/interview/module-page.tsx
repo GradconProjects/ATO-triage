@@ -79,7 +79,12 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
   }, [initial.caseId]);
 
   // ---- autosave ----
-  const flush = useCallback(async () => {
+  // One save at a time: a second save waits for the first, so versions are never computed twice
+  // from the same starting point. A failed save is retried with backoff.
+  const inFlight = useRef<Promise<void> | null>(null);
+  const retryDelay = useRef(2000);
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+  const flushOnce = async () => {
     const writes = store.takePending();
     if (writes.length === 0) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -101,13 +106,38 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
       setServerErrors(errs);
       store.applyServer(data.state.answers, data.state.items);
       store.setStatus('saved');
+      retryDelay.current = 2000;
       void refreshEstimate();
     } catch {
       store.restorePending(writes);
-      store.setStatus(typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'error');
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      store.setStatus(offline ? 'offline' : 'error');
+      // Offline saves resume on the 'online' event; other failures retry with backoff.
+      if (!offline) {
+        if (flushTimer.current) clearTimeout(flushTimer.current);
+        flushTimer.current = setTimeout(() => void flushRef.current(), retryDelay.current);
+        retryDelay.current = Math.min(retryDelay.current * 2, 60_000);
+      }
+    }
+  };
+
+  const flush = useCallback(async (): Promise<void> => {
+    if (inFlight.current) {
+      await inFlight.current;
+    }
+    const run = flushOnce();
+    inFlight.current = run;
+    try {
+      await run;
+    } finally {
+      if (inFlight.current === run) inFlight.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.caseId]);
+
+  useEffect(() => {
+    flushRef.current = flush;
+  }, [flush]);
 
   const scheduleFlush = useCallback(() => {
     if (flushTimer.current) clearTimeout(flushTimer.current);
@@ -118,7 +148,13 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
     const onOnline = () => void flush();
     window.addEventListener('online', onOnline);
     if (store.pending.size) scheduleFlush();
-    return () => window.removeEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      // Leaving the page: save what is waiting now, for this case, instead of on a timer that
+      // could fire after another case has loaded.
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      void flush();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -189,6 +225,9 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
           {initial.profileName} · {initial.fy}
           {readOnly ? ' · Final (read-only)' : ''}
         </p>
+        {/* Until this case's answers are loaded, show nothing editable: a box built from another
+            case's answers could otherwise save them into this case. */}
+        {store.caseId !== initial.caseId ? <p className="mt-4 text-sm text-muted">Loading your answers…</p> : (
         <div className="mt-4 space-y-4">
           {module === 'employment' && !readOnly ? (
             <StatementUpload
@@ -216,7 +255,7 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
                     {items.map((item, i) => (
                       <RepeaterItemCard
                         key={item.id}
-                        label={itemLabel(spec, view, item) || `${spec.itemLabel} ${i + 1}`}
+                        label={itemLabel(spec, view, item, QUESTION_BANK) || `${spec.itemLabel} ${i + 1}`}
                         item={item}
                         questions={childrenByItem.get(item.id) ?? []}
                         view={view}
@@ -242,6 +281,7 @@ export function ModulePage({ initial, module }: { initial: ClientCaseState; modu
             );
           })}
         </div>
+        )}
         <div className="mt-6 flex items-center justify-between">
           <Button variant="secondary" disabled={!prev} onClick={() => prev && router.push(`/cases/${initial.caseId}/interview/${prev}`)}>
             Back
