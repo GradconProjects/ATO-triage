@@ -39,7 +39,9 @@ export function computeSapto(cx: CalcContext, taxableCents: number, rfbCents: nu
   }
   const status = cx.a.string(Q.off.saptoStatus);
   const rules: RuleSet = cx.rules;
-  const rebateIncome = taxableCents + rfbCents + rescCents;
+  // Rebate income uses the adjusted fringe benefits total (reportable fringe benefits x 0.53, the
+  // non-exempt employer rate; exempt-employer amounts would be higher and are left for review).
+  const rebateIncome = taxableCents + Math.round(rfbCents * 0.53) + rescCents;
   const toReview = (reason: string, ids: string[]) => {
     cx.review('sapto', reason, ids);
     cx.setStatus('sapto', 'manual_review');

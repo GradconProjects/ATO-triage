@@ -67,6 +67,11 @@ export const CORE_QUESTIONS: Question[] = flatten(
     calc: { special: 'whm_income' },
     validation: [{ kind: 'min', value: 0 }],
   }),
+  yesNoUnsure(Q.res.whmResident, 'residency', 'Were you an Australian resident for tax purposes while on the working holiday visa?', {
+    help: 'Most working holiday makers are not. It decides how any other income is taxed and whether the Medicare levy applies.',
+    showIf: eq(Q.res.status, 'whm'),
+    feeds: ['tax_scale', 'medicare'],
+  }),
   yesNoUnsure(Q.res.dual, 'residency', 'Were you also treated as a tax resident of another country this year?', {
     help: 'Some people are residents of two countries at once. A tax treaty then decides which country taxes what. We flag this for review; it does not change the estimate.',
   }),

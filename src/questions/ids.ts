@@ -19,6 +19,7 @@ export const Q = {
     status: 'res.status',               // single: resident_full | became_resident | ceased_resident | foreign_full | temporary | whm | not_sure
     arrivalDate: 'res.arrival_date',    // date
     departureDate: 'res.departure_date',// date
+    whmResident: 'res.whm_resident',    // yes_no_unsure: working holiday maker who is an Australian resident for tax purposes
     whmIncome: 'res.whm_income',        // money: income earned while WHM
     dual: 'res.dual',                   // yes_no_unsure
   },

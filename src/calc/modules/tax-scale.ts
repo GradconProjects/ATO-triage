@@ -169,7 +169,12 @@ export function computeGrossTax(cx: CalcContext, taxableCents: number): GrossTax
     const whmPart = Math.min(Math.max(whmIncome, 0), taxableCents);
     const rest = taxableCents - whmPart;
     const taxWhm = grossTax(whmPart, rules.whmScale);
-    const taxRest = grossTax(rest, rules.residentScale);
+    // Other income is taxed at the rates for the person's residency, stacked above the WHM income
+    // (no second tax-free threshold): scale(total) - scale(WHM part).
+    const whmRes = cx.a.string(Q.res.whmResident);
+    const otherScale = whmRes === 'yes' ? rules.residentScale : rules.foreignResidentScale;
+    const taxRest = rest > 0 ? grossTax(taxableCents, otherScale) - grossTax(whmPart, otherScale) : 0;
+    if (rest > 0 && whmRes !== 'yes' && whmRes !== 'no') cx.review('tax_scale', 'Working holiday maker with other income: confirm tax residency. Other income is taxed at foreign resident rates until confirmed.', [Q.res.whmResident], taxRest);
     lines.computed({
       id: 'tax.gross.whm',
       section: 'gross_tax',
@@ -182,13 +187,12 @@ export function computeGrossTax(cx: CalcContext, taxableCents: number): GrossTax
     lines.computed({
       id: 'tax.gross.other',
       section: 'gross_tax',
-      label: 'Gross tax on other income (resident scale)',
+      label: `Gross tax on other income (${whmRes === 'yes' ? 'resident' : 'foreign resident'} scale)`,
       amountCents: taxRest,
-      ruleId: `${rules.fy}.residentScale`,
-      inputs: [Q.res.status],
-      formula: `resident scale on ${rest / 100}`,
+      ruleId: `${rules.fy}.${whmRes === 'yes' ? 'residentScale' : 'foreignResidentScale'}`,
+      inputs: [Q.res.status, Q.res.whmResident],
+      formula: `${whmRes === 'yes' ? 'resident' : 'foreign resident'} scale on ${taxableCents / 100} - same scale on WHM income ${whmPart / 100}`,
     });
-    cx.assume('Working holiday maker: WHM income taxed on the WHM scale and the remainder on the resident scale from $0 (simplification).');
     return { grossTaxCents: taxWhm + taxRest, scale: 'whm+resident' };
   }
 

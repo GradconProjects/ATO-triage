@@ -107,7 +107,10 @@ export function computeMedicare(cx: CalcContext, taxableCents: number, arrears?:
   const inputs: string[] = [Q.med.exemption, Q.fam.spouse, Q.fam.spouseTaxableIncome, Q.fam.dependantsCount, Q.off.saptoEligible];
   cx.setStatus('medicare', 'computed');
 
-  if (residencyKind(cx) === 'foreign' || exemption === 'foreign_resident' || exemption === 'temp_visa_mes') {
+  const whmNonResident = residencyKind(cx) === 'whm' && cx.a.string(Q.res.whmResident) !== 'yes';
+  const mesDays = exemption === 'temp_visa_mes' ? cx.a.number(Q.med.exemptDays) : undefined;
+  const mesFullYear = exemption === 'temp_visa_mes' && mesDays !== undefined && mesDays >= daysInFy(cx.fy);
+  if (residencyKind(cx) === 'foreign' || whmNonResident || exemption === 'foreign_resident' || mesFullYear) {
     cx.lines.excluded({
       id: 'medicare.levy',
       section: 'medicare',
@@ -116,7 +119,7 @@ export function computeMedicare(cx: CalcContext, taxableCents: number, arrears?:
       ruleId: `${rules.fy}.medicare`,
       inputs,
       formula: 'exempt for the full year',
-      note: exemption === 'temp_visa_mes' ? 'Temporary visa holder with a Medicare Entitlement Statement: no levy.' : 'Foreign residents do not pay the Medicare levy.',
+      note: mesFullYear ? 'Medicare Entitlement Statement covers the whole year: no levy.' : whmNonResident ? 'Working holiday makers who are not Australian residents for tax purposes do not pay the Medicare levy.' : 'Foreign residents do not pay the Medicare levy.',
     });
     return { levyCents: 0, exempt: true };
   }
@@ -164,11 +167,12 @@ export function computeMedicare(cx: CalcContext, taxableCents: number, arrears?:
   if (lse.excludedCents > 0) formula += `; ${fmt(lse.excludedCents)} lump sum in arrears excluded (s 9A)`;
   else if (lse.reason && arrears && arrears.totalCents > 0) cx.assume(`Medicare levy on lump sum in arrears: ${lse.reason}`);
 
-  if (exemption === 'part_year') {
+  // Part-year exemption, or a Medicare Entitlement Statement for only some days: pro-rated by the exempt days.
+  if (exemption === 'part_year' || exemption === 'temp_visa_mes') {
     const exemptDays = cx.a.number(Q.med.exemptDays);
     if (exemptDays === undefined) {
       cx.setStatus('medicare', 'manual_review');
-      cx.review('medicare', 'Part-year Medicare exemption: number of exempt days not answered.', [Q.med.exemptDays], levy);
+      cx.review('medicare', `${exemption === 'temp_visa_mes' ? 'Medicare Entitlement Statement' : 'Part-year Medicare exemption'}: number of exempt days not answered.`, [Q.med.exemptDays], levy);
       cx.lines.review({
         id: 'medicare.levy',
         section: 'medicare',

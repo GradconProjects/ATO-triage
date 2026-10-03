@@ -69,10 +69,16 @@ describe('residency selects the scale', () => {
     expect(est.lines.find((l) => l.id === 'offset.lito')).toBeUndefined();
     expect(est.totals.medicareLevyCents).toBe(0);
   });
-  it('WHM splits income between the WHM scale and the resident scale', () => {
-    const est = run([a(Q.res.status, 'whm'), a(Q.res.whmIncome, c(30000)), a(Q.emp.gross, c(50000), 'e1')]);
+  it('WHM: other income is stacked above the WHM income, with no second tax-free threshold', () => {
+    const est = run([a(Q.res.status, 'whm'), a(Q.res.whmResident, 'yes'), a(Q.res.whmIncome, c(30000)), a(Q.emp.gross, c(50000), 'e1')]);
     expect(lineById(est, 'tax.gross.whm').amountCents).toBe(c(4500));
-    expect(lineById(est, 'tax.gross.other').amountCents).toBe(c(0.16 * (20000 - 18200)));
+    // resident scale: tax(50,000) - tax(30,000) = 5,788 - 1,888 = 3,900
+    expect(lineById(est, 'tax.gross.other').amountCents).toBe(c(3900));
+  });
+  it('WHM residency not confirmed: foreign resident rates on other income, with review', () => {
+    const est = run([a(Q.res.status, 'whm'), a(Q.res.whmIncome, c(30000)), a(Q.emp.gross, c(50000), 'e1')]);
+    expect(lineById(est, 'tax.gross.other').amountCents).toBe(c(6000));
+    expect(est.manualReview.some((r) => r.questionIds.includes(Q.res.whmResident))).toBe(true);
   });
   it('WHM without WHM income goes to review', () => {
     const est = run([a(Q.res.status, 'whm'), a(Q.emp.gross, c(50000), 'e1')]);

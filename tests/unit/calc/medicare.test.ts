@@ -40,10 +40,14 @@ describe('Medicare in the pipeline', () => {
     expect(est.totals.medicareLevyCents).toBe(0);
     expect(lineById(est, 'medicare.levy').status).toBe('excluded');
   });
-  it('temporary visa with Medicare Entitlement Statement -> 0', () => {
-    const est = run([a(Q.med.exemption, 'temp_visa_mes'), a(Q.emp.gross, c(60000), 'e1')]);
+  it('temporary visa with a Medicare Entitlement Statement for the whole year -> 0', () => {
+    const est = run([a(Q.med.exemption, 'temp_visa_mes'), a(Q.med.exemptDays, 365), a(Q.emp.gross, c(60000), 'e1')]);
     expect(est.totals.medicareLevyCents).toBe(0);
     expect(est.totals.mlsCents).toBe(0);
+  });
+  it('temporary visa without the number of exempt days -> review, not a silent exemption', () => {
+    const est = run([a(Q.med.exemption, 'temp_visa_mes'), a(Q.emp.gross, c(60000), 'e1')]);
+    expect(lineById(est, 'medicare.levy').status).toBe('manual_review');
   });
   it('part-year exemption pro-rates by exempt days', () => {
     const est = run([a(Q.med.exemption, 'part_year'), a(Q.med.exemptDays, 100), a(Q.emp.gross, c(60000), 'e1')]);

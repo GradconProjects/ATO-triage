@@ -141,16 +141,22 @@ export function computeMls(cx: CalcContext, taxableCents: number, rfbCents: numb
     return 0;
   }
   const year = daysInFy(cx.fy);
-  const amount = new Decimal(own).mul(tier.rate).mul(days).div(year).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
+  // Days the person was exempt from the Medicare levy (prescribed person) carry no surcharge.
+  // Assumes the exempt days fall within the days without cover.
+  const exemption = cx.a.string(Q.med.exemption);
+  const exemptDays = exemption === 'part_year' || exemption === 'temp_visa_mes' ? Math.max(0, Math.min(year, Math.trunc(cx.a.number(Q.med.exemptDays) ?? 0))) : 0;
+  if (exemptDays > 0 && days > 0 && days < year) cx.assume('Medicare levy surcharge: Medicare-exempt days assumed to fall within the days without hospital cover.');
+  const liableDays = Math.max(0, days - exemptDays);
+  const amount = new Decimal(own).mul(tier.rate).mul(liableDays).div(year).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
   cx.setStatus('mls', 'computed');
   cx.lines.computed({
     id: 'mls.surcharge',
     section: 'mls',
-    label: `Medicare levy surcharge (tier ${tier.tier}, ${days} days without hospital cover)`,
+    label: `Medicare levy surcharge (tier ${tier.tier}, ${liableDays} days without hospital cover${exemptDays ? ' or Medicare exemption' : ''})`,
     amountCents: amount,
     ruleId: `${rules.fy}.mls`,
     inputs: [...inputs, Q.phi.daysCovered],
-    formula: `${own / 100} x ${tier.rate * 100}% x ${days}/${year}`,
+    formula: `${own / 100} x ${tier.rate * 100}% x ${liableDays}/${year}${exemptDays ? ` (${days} days without cover - ${exemptDays} Medicare-exempt days)` : ''}`,
   });
   return amount;
 }
